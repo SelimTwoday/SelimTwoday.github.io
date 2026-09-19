@@ -1,0 +1,629 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+	title="PERT-kalkylator"
+	description="Räkna ut ett PERT-tidsestimat för en grupp utifrån optimistiska, sannolika och pessimistiska gissningar."
+	showBackLink
+>
+	<div class="container page">
+		<header class="page__header">
+			<h1>PERT-kalkylator</h1>
+			<p class="page__lead">
+				Lägg till en rad per deltagare med en optimistisk (O), mest sannolik (M) och
+				pessimistisk (P) uppskattning i timmar. Resultatet räknas ut automatiskt när alla
+				fält är korrekt ifyllda.
+			</p>
+		</header>
+
+		<div class="pert-workspace">
+			<div class="pert-workspace__form">
+				<form id="pert-form" class="pert-form" novalidate>
+					<div class="participants card">
+						<div class="participants__header">
+							<div class="participants__heading">
+								<h2>Deltagare</h2>
+								<span id="participant-count" class="participants__count" aria-live="polite"
+									>1 person</span
+								>
+							</div>
+							<button
+								type="button"
+								id="add-row-button"
+								class="participants__add"
+								aria-label="Lägg till deltagare"
+								title="Lägg till deltagare"
+							>
+								<span aria-hidden="true" >+</span>
+							</button>
+						</div>
+						<div class="participant-grid">
+							<div class="participant-columns" aria-hidden="true">
+								<span>Optimistisk</span>
+								<span>Mest trolig</span>
+								<span>Pessimistisk</span>
+								<span></span>
+							</div>
+							<ul id="participant-rows" class="participant-rows"></ul>
+						</div>
+					</div>
+
+					<div class="settings card">
+						<h2 class="settings__title">Inställningar</h2>
+						<div class="settings__grid">
+							<label class="field">
+								<span>Mötestid per person (timmar)</span>
+								<input
+									type="text"
+									id="meeting-hours-input"
+									inputmode="decimal"
+									autocomplete="off"
+									value="1"
+									aria-describedby="meeting-hours-error"
+								/>
+								<p id="meeting-hours-error" class="field__error" aria-live="polite"></p>
+							</label>
+						</div>
+					</div>
+
+					<div id="pert-errors" class="status-message" data-tone="error" role="alert" hidden></div>
+				</form>
+
+				<template id="row-template">
+					<li class="participant-row">
+						<label class="field participant-row__field">
+							<span class="visually-hidden">Optimistisk</span>
+							<span class="input-control">
+								<span class="input-control__prefix" aria-hidden="true">O</span>
+								<input
+									type="text"
+									class="field-o input-control__input"
+									inputmode="decimal"
+									autocomplete="off"
+								/>
+							</span>
+						</label>
+						<label class="field participant-row__field">
+							<span class="visually-hidden">Mest trolig</span>
+							<span class="input-control">
+								<span class="input-control__prefix" aria-hidden="true">M</span>
+								<input
+									type="text"
+									class="field-m input-control__input"
+									inputmode="decimal"
+									autocomplete="off"
+								/>
+							</span>
+						</label>
+						<label class="field participant-row__field">
+							<span class="visually-hidden">Pessimistisk</span>
+							<span class="input-control">
+								<span class="input-control__prefix" aria-hidden="true">P</span>
+								<input
+									type="text"
+									class="field-p input-control__input"
+									inputmode="decimal"
+									autocomplete="off"
+								/>
+							</span>
+						</label>
+						<button type="button" class="participant-row__remove" aria-label="Ta bort deltagare">
+							✕
+						</button>
+						<p class="participant-row__error field__error" aria-live="polite"></p>
+					</li>
+				</template>
+
+			</div>
+
+			<div class="pert-workspace__result">
+				<div id="pert-result-empty" class="card result-empty">
+					<p>Fyll i minst en deltagare med giltiga O-, M- och P-värden så visas resultatet här.</p>
+				</div>
+
+				<section id="pert-result-panel" class="card result-panel" hidden aria-labelledby="result-heading">
+					<h2 id="result-heading">Resultat</h2>
+					<p class="result-panel__subtitle">Baserat på medelvärdet av alla inmatade O-, M- och P-värden.</p>
+
+					<div class="result-averages">
+						<div class="result-box">
+							<div class="result-box__label">Optimistisk</div>
+							<div class="result-box__value" id="avg-o">–</div>
+						</div>
+						<div class="result-box">
+							<div class="result-box__label">Mest sannolik</div>
+							<div class="result-box__value" id="avg-m">–</div>
+						</div>
+						<div class="result-box">
+							<div class="result-box__label">Pessimistisk</div>
+							<div class="result-box__value" id="avg-p">–</div>
+						</div>
+					</div>
+
+					<p class="result-formula" id="pert-formula">PERT = (O + 4×M + P) / 6</p>
+
+					<div class="result-final">
+						<div class="result-final__item">
+							<div class="result-final__label">PERT (utan möten)</div>
+							<div class="result-final__value" id="pert-hours">–</div>
+							<div class="result-final__sub" id="pert-days"></div>
+						</div>
+						<div class="result-final__item">
+							<div class="result-final__label">Tid lagd på estimering</div>
+							<div class="result-final__value" id="meeting-hours">–</div>
+							<div class="result-final__sub" id="meeting-note"></div>
+						</div>
+						<div class="result-final__item result-final__item--highlight">
+							<div class="result-final__label">Slutgiltigt resultat</div>
+							<div class="result-final__value" id="final-hours">–</div>
+							<div class="result-final__sub" id="final-days"></div>
+						</div>
+					</div>
+
+					<p class="result-note" id="people-note"></p>
+				</section>
+				
+				<div class="pert-actions">
+					<button type="button" id="share-button" class="button button-secondary" disabled>
+						Kopiera länk
+					</button>
+					<button type="button" id="png-button" class="button button-primary" disabled>
+						Kopiera bild (PNG)
+					</button>
+				</div>
+				<p id="share-status" class="action-status" role="status" aria-live="polite"></p>
+				<p id="png-status" class="action-status" role="status" aria-live="polite"></p>
+			</div>
+		</div>
+	</div>
+</BaseLayout>
+
+<script src="../../../scripts/pert-client.ts"></script>
+
+<style>
+	.page {
+		padding-block: 2.5rem 4rem;
+	}
+
+	.page__header {
+		margin-bottom: 2rem;
+	}
+
+	.page__header h1 {
+		font-size: clamp(1.9rem, 4vw, 2.6rem);
+		margin: 0 0 0.6rem;
+	}
+
+	.page__lead {
+		color: var(--color-text-muted);
+		font-size: 1.02rem;
+		margin: 0;
+		max-width: 40rem;
+	}
+
+	.pert-workspace {
+		display: grid;
+		grid-template-columns: minmax(0, .5fr) minmax(22rem, .85fr);
+		align-items: start;
+		gap: 2rem;
+	}
+
+	.pert-workspace__form {
+		min-width: 0;
+	}
+
+	.pert-workspace__result {
+		position: sticky;
+		top: 1.5rem;
+	}
+
+	@media (max-width: 900px) {
+		.pert-workspace {
+			grid-template-columns: 1fr;
+		}
+
+		.pert-workspace__result {
+			position: static;
+		}
+	}
+
+	.settings {
+		padding: 1rem 1.25rem 1.25rem;
+	}
+
+	.settings__title {
+		font-weight: 800;
+		font-size: 1.05rem;
+		margin: 0 0 0.4rem;
+	}
+
+	.settings__grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+		gap: 0.6rem;
+	}
+
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.field > input {
+		font: inherit;
+		font-size: 0.95rem;
+		font-weight: 500;
+		color: var(--color-text);
+		background: var(--color-bg);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-md);
+		padding: 0.45rem 0.6rem;
+		min-height: 2.2rem;
+	}
+
+	.field > input[aria-invalid='true'] {
+		border-color: var(--color-danger-border);
+	}
+
+	.input-control {
+		display: flex;
+		align-items: stretch;
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		transition: border-color 150ms ease;
+	}
+
+	.input-control:focus-within {
+		border-color: var(--color-primary);
+	}
+
+	.input-control:has(.input-control__input[aria-invalid='true']) {
+		border-color: var(--color-danger-border);
+	}
+
+	.input-control__prefix {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.5rem;
+		padding-inline: 0.35rem;
+		font-weight: 800;
+		font-size: 0.8rem;
+		color: var(--color-text-muted);
+		background: var(--color-bg-elevated-2);
+		border-right: 1px solid var(--color-border-strong);
+		border-top-left-radius: var(--radius-md);
+		border-bottom-left-radius: var(--radius-md);
+	}
+
+	.input-control__input {
+		flex: 1;
+		min-width: 0;
+		width: 100%;
+		font: inherit;
+		font-size: 0.95rem;
+		font-weight: 500;
+		color: var(--color-text);
+		background: transparent;
+		border: none;
+		padding: 0.4rem 0.4rem;
+		min-height: 2.2rem;
+	}
+
+	.input-control__input:focus {
+		outline: none;
+	}
+
+	.field__error {
+		margin: 0;
+		min-height: 1.1em;
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: var(--color-danger);
+	}
+
+	.field__error:empty {
+		display: none;
+	}
+
+	.participants {
+		padding: 1rem 1.25rem 1.25rem;
+		margin-bottom: 1.25rem;
+	}
+
+	.participants__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-bottom: 0.9rem;
+	}
+
+	.participants__heading {
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.participants__heading h2 {
+		font-size: 1.2rem;
+		margin: 0;
+	}
+
+	.participants__count {
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.participants__add {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.5rem;
+		height: 1.5rem;
+		flex-shrink: 0;
+		font-size: 1.2rem;
+		font-weight: 500;
+		line-height: 1;
+		color: var(--color-text-muted);
+		background: var(--color-bg-elevated-2);
+		border: none;
+		border-radius: 999px;
+		cursor: pointer;
+		transition: filter 150ms ease, transform 150ms ease;
+	}
+
+	.participants__add:hover {
+		filter: brightness(1.08);
+	}
+
+	.participants__add:active {
+		transform: scale(0.94);
+	}
+
+	.participants__add span {
+		height: 22px;
+	}
+
+	.participant-grid {
+		/* Safety net only — the grid below is fully fluid and shouldn't need to scroll. */
+		overflow-x: auto;
+	}
+
+	.participant-columns,
+	.participant-row {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(3rem, 1fr)) 1.6rem;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.participant-columns {
+		padding-bottom: 0.4rem;
+		font-size: 0.78rem;
+		font-weight: 700;
+		color: var(--color-text-muted);
+	}
+
+	.participant-columns span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.participant-rows {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.participant-row {
+		padding: 0.6rem 0;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.participant-rows > .participant-row:first-child {
+		border-top: none;
+		padding-top: 0;
+	}
+
+	.participant-rows > .participant-row:last-child {
+		padding-bottom: 0;
+	}
+
+	.participant-row__remove {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		justify-self: center;
+		width: 1.6rem;
+		height: 1.6rem;
+		flex-shrink: 0;
+		font-size: 0.85rem;
+		line-height: 1;
+		color: var(--color-text-muted);
+		background: transparent;
+		border: none;
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: background-color 150ms ease, color 150ms ease;
+	}
+
+	.participant-row__remove:hover:not(:disabled) {
+		background: var(--color-bg-elevated-2);
+		color: var(--color-text);
+	}
+
+	.participant-row__remove:disabled {
+		opacity: 0.35;
+		cursor: not-allowed;
+	}
+
+	.participant-row__field {
+		min-width: 0;
+	}
+
+	.participant-row__error {
+		grid-column: 1 / -1;
+	}
+
+	.pert-actions {
+		display: flex;
+		gap: 0.9rem;
+		flex-wrap: wrap;
+		margin-top: 1.75rem;
+		justify-content: flex-end;
+	}
+
+	.action-status {
+		margin: 0.6rem 0 0;
+		font-size: 0.9rem;
+		color: var(--color-text-muted);
+		min-height: 1.2em;
+	}
+	
+	.pert-form{
+		margin-bottom: 2.5rem;
+	}
+
+	.result-empty {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		text-align: center;
+		min-height: 12rem;
+		padding: clamp(1.5rem, 4vw, 2.25rem);
+		color: var(--color-text-muted);
+		font-size: 0.95rem;
+	}
+
+	.result-empty[hidden] {
+		display: none;
+	}
+
+	.result-panel {
+		padding: clamp(1.5rem, 4vw, 2.25rem);
+	}
+
+	.result-panel h2 {
+		margin: 0 0 0.35rem;
+		font-size: 1.35rem;
+		line-height: 1.25;
+	}
+
+	.result-panel__subtitle {
+		margin: 0 0 1.5rem;
+		color: var(--color-text-muted);
+		font-size: 0.92rem;
+		line-height: 1.3;
+	}
+
+	.result-averages {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 1rem;
+		margin-bottom: 1.25rem;
+	}
+
+	.result-box {
+		background: var(--color-bg-elevated-2);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: 0.9rem 1rem;
+	}
+
+	.result-box__label {
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--color-text-muted);
+		margin-bottom: 0.4rem;
+		line-height: 1.3;
+	}
+
+	.result-box__value {
+		font-size: 1.3rem;
+		font-weight: 800;
+		line-height: 1.25;
+	}
+
+	.result-formula {
+		font-family: var(--font-mono);
+		background: var(--color-bg-elevated-2);
+		border-radius: var(--radius-md);
+		padding: 0.85rem 1rem;
+		margin: 0 0 1.5rem;
+		font-size: 0.95rem;
+		line-height: 1.3;
+		color: var(--color-text-muted);
+	}
+
+	.result-final {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.9rem;
+	}
+
+	.result-final__item--highlight {
+		grid-column: 1 / -1;
+	}
+
+	.result-final__item {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg-elevated-2);
+		padding: 1rem 1.15rem;
+	}
+
+	.result-final__item--highlight {
+		border-color: var(--color-primary);
+		background: var(--color-primary-muted);
+	}
+
+	.result-final__label {
+		font-size: 0.85rem;
+		color: var(--color-text-muted);
+		margin-bottom: 0.3rem;
+		line-height: 1.3;
+	}
+
+	.result-final__value {
+		font-size: 1.6rem;
+		font-weight: 900;
+		line-height: 1.2;
+	}
+
+	.result-final__sub {
+		font-size: 0.9rem;
+		color: var(--color-text-muted);
+		margin-top: 0.2rem;
+		line-height: 1.3;
+	}
+
+	.result-note {
+		margin: 1.25rem 0 0;
+		font-size: 0.85rem;
+		color: var(--color-text-muted);
+		line-height: 1.3;
+	}
+
+	@media (max-width: 640px) {
+		.result-averages {
+			grid-template-columns: 1fr;
+		}
+
+		.result-final {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>

@@ -1,0 +1,107 @@
+---
+export interface Props {
+	title: string;
+	description: string;
+	href?: string;
+	icon?: string;
+	/** When true, renders as a non-interactive "coming soon" card. */
+	disabled?: boolean;
+}
+
+const { title, description, href, icon = '✦', disabled = false } = Astro.props;
+const Tag = disabled ? 'div' : 'a';
+---
+
+<Tag
+	class:list={['tool-card', { 'tool-card--disabled': disabled }]}
+	href={disabled ? undefined : href}
+	aria-disabled={disabled ? 'true' : undefined}
+	tabindex={disabled ? -1 : undefined}
+>
+	<span class="tool-card__icon" aria-hidden="true">{icon}</span>
+	<div class="tool-card__body">
+		<h3 class="tool-card__title">{title}</h3>
+		<p class="tool-card__description">{description}</p>
+	</div>
+	{
+		disabled ? (
+			<span class="tool-card__badge">Kommer aldrig</span>
+		) : (
+			<span class="tool-card__cta" aria-hidden="true">
+				Öppna →
+			</span>
+		)
+	}
+</Tag>
+
+<style>
+	.tool-card {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 0.9rem;
+		padding: 1.5rem;
+		border-radius: var(--radius-lg);
+		background: var(--color-bg-elevated);
+		border: 1px solid var(--color-border);
+		text-decoration: none;
+		color: var(--color-text);
+		transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+		height: 100%;
+	}
+
+	a.tool-card:hover,
+	a.tool-card:focus-visible {
+		transform: translateY(-3px);
+		border-color: var(--color-primary);
+		box-shadow: var(--shadow-elevated);
+	}
+
+	.tool-card--disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+		background: var(--color-disabled-bg);
+		border-style: dashed;
+		border-color: var(--color-disabled-border);
+		color: var(--color-disabled-text);
+	}
+
+	.tool-card__icon {
+		font-size: 1.6rem;
+	}
+
+	.tool-card__title {
+		font-size: 1.15rem;
+		margin: 0 0 0.35rem;
+	}
+
+	.tool-card__description {
+		margin: 0;
+		font-size: 0.92rem;
+		color: var(--color-text-muted);
+	}
+
+	.tool-card--disabled .tool-card__description {
+		color: inherit;
+	}
+
+	.tool-card__cta {
+		margin-top: auto;
+		font-weight: 700;
+		font-size: 0.85rem;
+		color: var(--color-primary);
+	}
+
+	.tool-card__badge {
+		margin-top: auto;
+		align-self: flex-start;
+		font-size: 0.75rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		padding: 0.25rem 0.6rem;
+		border-radius: 999px;
+		background: var(--color-disabled-bg);
+		border: 1px solid var(--color-disabled-border);
+	}
+</style>

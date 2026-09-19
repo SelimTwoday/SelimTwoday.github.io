@@ -1,0 +1,104 @@
+<section class="intro">
+	<div class="container">
+		<div class="intro__card">
+			<div class="intro__text">
+				<p class="intro__eyebrow">Hej, jag heter</p>
+				<h1 class="intro__name">Selim Hjorthall.</h1>
+				<p class="intro__role">Utvecklare och UI/UX-designer.</p>
+				<hr class="intro__divider" />
+				<p class="intro__bio">
+					Fullstackutvecklare på INSIKT Twoday sedan våren 2025, med civilingenjörsexamen inom interaktion och design.
+					Jag arbetar över hela stacken med tyngdpunkt på användarupplevelsen, där designbakgrunden gör störst nytta.
+					Rätt sak på rätt plats när användaren behöver den, så informationen når fram på ett naturligt sätt.
+				</p>
+			</div>
+			<img
+				class="intro__mascot"
+				src="/poangendjuret.png"
+				alt="Poängendjuret, teamets gröna älg-maskot"
+				width="800"
+				height="688"
+				loading="eager"
+			/>
+		</div>
+	</div>
+</section>
+
+<style>
+	.intro {
+		padding-block: clamp(2.5rem, 6vw, 5rem) clamp(2rem, 5vw, 3.5rem);
+	}
+
+	.intro__card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		background-color: var(--color-bg-elevated);
+		padding: 3rem;
+		border-radius: 6rem;
+		corner-shape: squircle;
+        gap: 2em;
+	}
+
+	.intro__text {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.intro__mascot {
+		width: 100%;
+		max-width: 18rem;
+		height: auto;
+		flex-shrink: 0;
+	}
+
+	@media (max-width: 720px) {
+		.intro__card {
+			flex-direction: column;
+			text-align: center;
+		}
+
+		.intro__mascot {
+			max-width: 10rem;
+			order: -1;
+		}
+
+		.intro__divider {
+			display: none;
+		}
+	}
+
+	.intro__eyebrow {
+		margin: 0;
+		font-size: 1.25rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+	}
+
+	.intro__name {
+		margin: 0;
+		font-size: clamp(2.4rem, 6vw, 3.4rem);
+		letter-spacing: -0.02em;
+	}
+
+	.intro__role {
+		margin: 0;
+		font-size: clamp(1.4rem, 3vw, 2rem);
+		font-weight: 800;
+		color: var(--color-text-muted);
+	}
+
+	.intro__divider {
+		width: 5rem;
+		border: none;
+		border-top: 2px solid var(--color-border-strong);
+		margin: 0.5rem 0;
+	}
+
+	.intro__bio {
+		font-size: 1.1rem;
+		color: var(--color-text-muted);
+		margin: 0;
+	}
+</style>

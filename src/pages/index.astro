@@ -1,0 +1,79 @@
+---
+import IntroCard from '../components/IntroCard.astro';
+import ToolCard from '../components/ToolCard.astro';
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+	title="Selim Hjorthall"
+	description="Selim Hjorthall — utvecklare och UI/UX-designer. Visitkort och samling av små verktyg."
+	>
+	<IntroCard />
+
+	<section class="tools" aria-labelledby="tools-heading">
+		<div class="container">
+			<h2 id="tools-heading">Verktyg</h2>
+			<p class="tools__lead">
+				Små, fokuserade verktyg jag byggt längs vägen. Fler tillkommer efter hand.
+			</p>
+			<div class="tools__grid">
+				<ToolCard
+					title="Diffchecker"
+					description="Jämför två texter rad för rad och få ord-, tecken-, menings- och styckesräknare direkt i samma vy."
+					href="/verktyg/diffchecker/"
+					icon="📝"
+				/>
+				<ToolCard
+					title="PERT-kalkylator"
+					description="Räkna ut ett tidsestimat från optimistiska, sannolika och pessimistiska gissningar för en hel grupp."
+					href="/verktyg/pert/"
+					icon="📊"
+				/>
+				<ToolCard
+					title="Kodfilosofi"
+					description="En samlad, stegvis progression av tekniker och principer värda att träna på — från grunder till avancerat."
+					href="/verktyg/kodfilosofi/"
+					icon="🧭"
+				/>
+				<ToolCard
+					title="Retro-generator"
+					description="Slumpa fram frågor och format för teamets nästa retrospektiv."
+					disabled
+				/>
+				<ToolCard
+					title="Namnförslag"
+					description="Ett litet verktyg för att hitta bra namn på variabler, tjänster och grenar."
+					disabled
+				/>
+				<ToolCard
+					title="Story-splitter"
+					description="Hjälp att bryta ner stora user stories till mindre, leveransbara delar."
+					disabled
+				/>
+			</div>
+		</div>
+	</section>
+</BaseLayout>
+
+<style>
+	.tools {
+		padding-block: 2rem clamp(3rem, 6vw, 5rem);
+	}
+
+	.tools h2 {
+		font-size: 1.6rem;
+		margin: 0 0 0.4rem;
+	}
+
+	.tools__lead {
+		margin: 0 0 1.75rem;
+		color: var(--color-text-muted);
+		max-width: 40rem;
+	}
+
+	.tools__grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+		gap: 1.25rem;
+	}
+</style>

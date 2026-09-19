@@ -1,0 +1,330 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+	title="Diffchecker"
+	description="Jämför två texter snabbt och se skillnaderna rad för rad, med tecken- och ordräknare direkt under varje ruta."
+	showBackLink
+>
+	<div class="container page">
+		<header class="page__header">
+			<h1>Diffchecker</h1>
+			<p class="page__lead">
+				Klistra in två texter och se direkt vad som skiljer dem åt. Under varje ruta får du
+				även en snabb räknare för ord, tecken, meningar och stycken.
+			</p>
+		</header>
+
+		<section class="workspace" aria-label="Textjämförelse">
+			<div class="editor-grid">
+				<section class="editor card" aria-labelledby="editor-left-heading">
+					<div class="editor__header">
+						<h2 id="editor-left-heading">Text A</h2>
+					</div>
+					<label class="visually-hidden" for="diff-left-input">Text A</label>
+					<textarea
+						id="diff-left-input"
+						class="editor__textarea"
+						placeholder="Klistra in första texten här…"></textarea>
+					<dl class="stats" aria-label="Statistik för Text A">
+						<div class="stats__item">
+							<dt>Ord</dt>
+							<dd id="left-words">0</dd>
+						</div>
+						<div class="stats__item">
+							<dt>Tecken</dt>
+							<dd id="left-characters">0</dd>
+						</div>
+						<div class="stats__item">
+							<dt>Tecken utan blanksteg</dt>
+							<dd id="left-characters-no-spaces">0</dd>
+						</div>
+						<div class="stats__item">
+							<dt>Meningar</dt>
+							<dd id="left-sentences">0</dd>
+						</div>
+						<div class="stats__item">
+							<dt>Stycken</dt>
+							<dd id="left-paragraphs">0</dd>
+						</div>
+					</dl>
+				</section>
+
+				<section class="editor card" aria-labelledby="editor-right-heading">
+					<div class="editor__header">
+						<h2 id="editor-right-heading">Text B</h2>
+					</div>
+					<label class="visually-hidden" for="diff-right-input">Text B</label>
+					<textarea
+						id="diff-right-input"
+						class="editor__textarea"
+						placeholder="Klistra in andra texten här…"></textarea>
+					<dl class="stats" aria-label="Statistik för Text B">
+						<div class="stats__item">
+							<dt>Ord</dt>
+							<dd id="right-words">0</dd>
+						</div>
+						<div class="stats__item">
+							<dt>Tecken</dt>
+							<dd id="right-characters">0</dd>
+						</div>
+						<div class="stats__item">
+							<dt>Tecken utan blanksteg</dt>
+							<dd id="right-characters-no-spaces">0</dd>
+						</div>
+						<div class="stats__item">
+							<dt>Meningar</dt>
+							<dd id="right-sentences">0</dd>
+						</div>
+						<div class="stats__item">
+							<dt>Stycken</dt>
+							<dd id="right-paragraphs">0</dd>
+						</div>
+					</dl>
+				</section>
+			</div>
+
+			<section class="card diff-panel" aria-labelledby="diff-heading">
+				<div class="diff-panel__header">
+					<div>
+						<h2 id="diff-heading">Skillnader</h2>
+						<p id="diff-summary" class="diff-panel__lead" aria-live="polite" aria-atomic="true">
+							Klistra in två texter för att jämföra dem rad för rad.
+						</p>
+					</div>
+				</div>
+				<p id="diff-empty" class="diff-empty" aria-hidden="true">Inget att jämföra ännu.</p>
+				<div
+					id="diff-rows"
+					class="diff-rows"
+					role="region"
+					aria-labelledby="diff-heading"
+					aria-describedby="diff-summary"></div>
+			</section>
+		</section>
+	</div>
+</BaseLayout>
+
+<script>
+	import '../../../scripts/diffchecker-client.ts';
+</script>
+
+<style>
+	.page {
+		padding-block: 2.5rem 4rem;
+	}
+
+	.page__header {
+		margin-bottom: 2rem;
+	}
+
+	.page__header h1 {
+		font-size: clamp(1.9rem, 4vw, 2.6rem);
+		margin: 0 0 0.6rem;
+	}
+
+	.page__lead {
+		color: var(--color-text-muted);
+		font-size: 1.02rem;
+		margin: 0;
+		max-width: 46rem;
+	}
+
+	.workspace {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	.editor-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1.25rem;
+	}
+
+	.editor {
+		padding: 1.2rem;
+	}
+
+	.editor__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 0.9rem;
+	}
+
+	.editor__header h2,
+	.diff-panel h2 {
+		margin: 0;
+		font-size: 1.1rem;
+	}
+
+	.editor__textarea {
+		width: 100%;
+		min-height: 18rem;
+		resize: vertical;
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-md);
+		background: var(--color-bg);
+		color: var(--color-text);
+		padding: 0.85rem 0.95rem;
+		font: inherit;
+		line-height: 1.5;
+	}
+
+	.stats {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+		gap: 0.75rem;
+		margin: 1rem 0 0;
+	}
+
+	.stats__item {
+		margin: 0;
+		padding: 0.75rem 0.85rem;
+		border-radius: var(--radius-md);
+		background: var(--color-bg-elevated-2);
+		border: 1px solid var(--color-border);
+	}
+
+	.stats__item dt {
+		font-size: 0.78rem;
+		color: var(--color-text-muted);
+		margin-bottom: 0.25rem;
+	}
+
+	.stats__item dd {
+		margin: 0;
+		font-size: 1.1rem;
+		font-weight: 800;
+	}
+
+	.diff-panel {
+		padding: 1.2rem;
+	}
+
+	.diff-panel__lead,
+	.diff-empty {
+		margin: 0.35rem 0 0;
+		color: var(--color-text-muted);
+	}
+
+	.diff-empty[hidden] {
+		display: none;
+	}
+
+	.diff-rows {
+		--diff-remove-line: color-mix(in srgb, var(--color-danger) 12%, var(--color-bg-elevated));
+		--diff-remove-gutter: color-mix(in srgb, var(--color-danger) 20%, var(--color-bg-elevated));
+		--diff-remove-highlight: color-mix(in srgb, var(--color-danger) 42%, transparent);
+		--diff-add-line: color-mix(in srgb, var(--color-success) 12%, var(--color-bg-elevated));
+		--diff-add-gutter: color-mix(in srgb, var(--color-success) 20%, var(--color-bg-elevated));
+		--diff-add-highlight: color-mix(in srgb, var(--color-success) 42%, transparent);
+		display: flex;
+		flex-direction: column;
+		margin-top: 1rem;
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-md);
+		overflow-x: auto;
+	}
+
+	.diff-rows:empty {
+		display: none;
+	}
+
+	.diff-rows :global(.diff-row) {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		min-width: 44rem;
+		background: var(--color-bg-elevated-2);
+	}
+
+	.diff-rows :global(.diff-row + .diff-row) {
+		border-top: 1px solid var(--color-border);
+	}
+
+	.diff-rows :global(.diff-row__column) {
+		display: grid;
+		grid-template-columns: 3rem 1.75rem minmax(0, 1fr);
+		align-items: stretch;
+		min-width: 0;
+	}
+
+	.diff-rows :global(.diff-row__column--left) {
+		border-right: 1px solid var(--color-border-strong);
+	}
+
+	.diff-rows :global(.diff-row__line),
+	.diff-rows :global(.diff-row__marker) {
+		padding: 0.65rem 0.5rem;
+		text-align: right;
+		font: 600 0.78rem/1.5 var(--font-mono);
+		color: var(--color-text-muted);
+		border-right: 1px solid var(--color-border);
+		user-select: none;
+	}
+
+	.diff-rows :global(.diff-row__marker) {
+		padding-inline: 0.45rem;
+		text-align: center;
+		color: var(--color-text);
+	}
+
+	.diff-rows :global(.diff-row__text) {
+		margin: 0;
+		padding: 0.65rem 0.75rem;
+		font: 0.92rem/1.5 var(--font-mono);
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	.diff-rows :global(.diff-row__text--empty) {
+		color: var(--color-text-muted);
+	}
+
+	.diff-rows :global(.diff-row--add .diff-row__column--right),
+	.diff-rows :global(.diff-row--change .diff-row__column--right) {
+		background: var(--diff-add-line);
+	}
+
+	.diff-rows :global(.diff-row--remove .diff-row__column--left),
+	.diff-rows :global(.diff-row--change .diff-row__column--left) {
+		background: var(--diff-remove-line);
+	}
+
+	.diff-rows :global(.diff-row--add .diff-row__column--right .diff-row__line),
+	.diff-rows :global(.diff-row--add .diff-row__column--right .diff-row__marker),
+	.diff-rows :global(.diff-row--change .diff-row__column--right .diff-row__line),
+	.diff-rows :global(.diff-row--change .diff-row__column--right .diff-row__marker) {
+		background: var(--diff-add-gutter);
+	}
+
+	.diff-rows :global(.diff-row--remove .diff-row__column--left .diff-row__line),
+	.diff-rows :global(.diff-row--remove .diff-row__column--left .diff-row__marker),
+	.diff-rows :global(.diff-row--change .diff-row__column--left .diff-row__line),
+	.diff-rows :global(.diff-row--change .diff-row__column--left .diff-row__marker) {
+		background: var(--diff-remove-gutter);
+	}
+
+	.diff-rows :global(.diff-segment--remove) {
+		background: var(--diff-remove-highlight);
+		box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-danger) 22%, transparent);
+	}
+
+	.diff-rows :global(.diff-segment--add) {
+		background: var(--diff-add-highlight);
+		box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-success) 22%, transparent);
+	}
+
+	@media (max-width: 900px) {
+		.editor-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.diff-panel {
+			padding-inline: 0.75rem;
+		}
+	}
+</style>

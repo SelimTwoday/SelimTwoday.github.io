@@ -1,0 +1,197 @@
+---
+import { kodfilosofiLevels } from '../../../content/kodfilosofi';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+	title="Kodfilosofi"
+	description="En stegvis progression av tekniker och principer värda att träna på — från grunder till avancerat."
+	showBackLink
+>
+	<div class="container page">
+		<header class="page__header">
+			<h1>Kodkvalitet och arbetssätt</h1>
+			<p class="page__lead">
+				En samlad kodfilosofi, ordnad som en resa från grundläggande vanor till avancerade
+				tekniker. Varje nivå bygger vidare på den föregående.
+				Listan bygger på <a href="https://hornlund.se/">Tommy Hörnlund's arbete</a>  och erfarenheter inom mjukvaruutveckling.
+			</p>
+		</header>
+
+		<ol class="levels">
+			{
+				kodfilosofiLevels.map((level) => (
+					<li class="level" data-level={level.level}>
+						<div class="level__heading">
+							<span class="level__badge" data-level={level.level}>Nivå {level.level}</span>
+							<h2>{level.label}</h2>
+						</div>
+						<p class="level__intro">{level.intro}</p>
+						<div class="level__categories">
+							{level.categories.map((category) => (
+								<section class="category card" aria-labelledby={`cat-${level.level}-${category.title}`}>
+									<h3 id={`cat-${level.level}-${category.title}`}>{category.title}</h3>
+									<ul>
+										{category.items.map((item) => (
+											<li>{item}</li>
+										))}
+									</ul>
+								</section>
+							))}
+						</div>
+					</li>
+				))
+			}
+		</ol>
+	</div>
+</BaseLayout>
+
+<style>
+	.page {
+		padding-block: 2.5rem 4rem;
+	}
+
+	.page__header {
+		max-width: 44rem;
+		margin-bottom: 2.5rem;
+	}
+
+	.page__header h1 {
+		font-size: clamp(1.9rem, 4vw, 2.6rem);
+		margin: 0 0 0.6rem;
+	}
+
+	.page__lead {
+		color: var(--color-text-muted);
+		font-size: 1.05rem;
+		margin: 0;
+	}
+
+	.level {
+		border-top: 1px solid var(--color-border);
+		padding-top: 2rem;
+		margin-top: 2rem;
+	}
+
+	.levels {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.level__heading {
+		display: flex;
+		gap: 0.9rem;
+		flex-wrap: wrap;
+	}
+
+	.level__badge {
+		display: inline-flex;
+		align-items: center;
+		font-size: 0.78rem;
+		font-weight: 800;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--badge-color, var(--color-primary));
+		background: var(--badge-bg, var(--color-primary-muted));
+		border: 1px solid var(--badge-color, transparent);
+		outline: 1px solid color-mix(in srgb, var(--badge-color, transparent) 50%, transparent);
+		outline-offset: -3px;
+		padding: 0.3rem 0.7rem;
+		border-radius: 999px;
+	}
+
+	.level[data-level='1'] {
+		--badge-color: #3fb950;
+		--badge-bg: rgba(63, 185, 80, 0.14);
+	}
+
+	.level[data-level='2'] {
+		--badge-color: #22b8cf;
+		--badge-bg: rgba(34, 184, 207, 0.14);
+	}
+
+	.level[data-level='3'] {
+		--badge-color: #d4a72c;
+		--badge-bg: rgba(212, 167, 44, 0.16);
+	}
+
+	.level[data-level='4'] {
+		--badge-color: #e5484d;
+		--badge-bg: rgba(229, 72, 77, 0.14);
+	}
+
+	.level[data-level='5'] {
+		--badge-color: #a970ff;
+		--badge-bg: rgba(169, 112, 255, 0.16);
+	}
+
+	.level__heading h2 {
+		font-size: 1.4rem;
+		margin: 0;
+	}
+
+	.level__intro {
+		margin: 0.5rem 0 1.25rem;
+		color: var(--color-text-muted);
+		max-width: 42rem;
+	}
+
+	.level__categories {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+		justify-items: center;
+		gap: 1.1rem;
+	}
+
+	.category {
+		width: 100%;
+		max-width: 100%;
+		padding: 1.25rem 1.4rem;
+		transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1), opacity 400ms ease-in-out;
+	}
+
+	.category:hover {
+		border-color: var(--badge-color, var(--color-primary));
+	}
+
+	.category h3 {
+		font-size: 1.05rem;
+		margin: 0 0 0.7rem;
+	}
+
+	.category ul {
+		margin: 0;
+		padding-left: 1.1rem;
+		list-style-type: disc;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		color: var(--color-text-semimuted);
+		font-size: 0.95rem;
+	}
+
+	.category li::marker {
+		transition: color 150ms ease-in-out;
+	}
+
+	.category li {
+		transition: color 150ms ease-in-out;
+	}
+
+	.category li:hover::marker {
+		color: var(--color-text);
+	}
+
+	.category li:hover {
+		color: var(--color-text);
+		filter: drop-shadow(0 0 1px var(--badge-color, var(--color-primary)));
+	}
+
+	.levels:has(.category:hover) .category:not(:hover) {
+		opacity: 0.5;
+	}
+</style>
