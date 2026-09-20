@@ -33,6 +33,23 @@ export interface PertResult {
 	averageP: number;
 	/** (avgO + 4 * avgM + avgP) / 6, excluding meeting time. */
 	pertHours: number;
+	/** Beta-distribution approximation: (averageP - averageO) / 6. */
+	pertStdDev: number;
+	pertVariance: number;
+	/** pertHours - pertStdDev, clamped to 0 - lower bound of the ~68% interval. */
+	pertLowHours: number;
+	/** pertHours + pertStdDev - upper bound of the ~68% interval. */
+	pertHighHours: number;
+	/** pertStdDev / pertHours - how wide the O-P spread is relative to the estimate. */
+	pertRelativeStdDev: number;
+	/** True when pertRelativeStdDev exceeds HIGH_UNCERTAINTY_THRESHOLD. */
+	highUncertainty: boolean;
+	/** Population standard deviation of participants' "most likely" (m) values. */
+	mStdDev: number;
+	/** mStdDev / averageM - how much participants disagree relative to the average. */
+	mRelativeStdDev: number;
+	/** True when mRelativeStdDev exceeds TEAM_DISAGREEMENT_THRESHOLD. */
+	teamDisagreement: boolean;
 	peopleCount: number;
 	meetingHoursPerPerson: number;
 	meetingTotalHours: number;

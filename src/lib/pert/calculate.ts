@@ -5,6 +5,13 @@ export function average(values: number[]): number {
 	return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+/** Population standard deviation — we have the full set of estimates, not a sample. */
+export function standardDeviation(values: number[]): number {
+	const mean = average(values);
+	const variance = average(values.map((value) => (value - mean) ** 2));
+	return Math.sqrt(variance);
+}
+
 /**
  * Classic three-point PERT expected duration:
  * (optimistic + 4 * mostLikely + pessimistic) / 6
@@ -12,6 +19,12 @@ export function average(values: number[]): number {
 export function pertFormula(optimistic: number, mostLikely: number, pessimistic: number): number {
 	return (optimistic + 4 * mostLikely + pessimistic) / 6;
 }
+
+/** Above this ratio of pertStdDev / pertHours, the O–P spread is flagged as high uncertainty. */
+export const HIGH_UNCERTAINTY_THRESHOLD = 0.3;
+
+/** Above this ratio of mStdDev / averageM, participants are flagged as not aligned on scope. */
+export const TEAM_DISAGREEMENT_THRESHOLD = 0.4;
 
 /**
  * Computes the full PERT result for a group of participants.
@@ -31,11 +44,35 @@ export function calculatePert(
 	const finalHours = pertHours + meetingTotalHours;
 	const workdays = finalHours / settings.hoursPerDay;
 
+	// Beta-distribution approximation of the estimate's own uncertainty, derived
+	// from the spread between the (averaged) optimistic and pessimistic guesses.
+	const pertStdDev = (averageP - averageO) / 6;
+	const pertVariance = pertStdDev ** 2;
+	const pertLowHours = Math.max(0, pertHours - pertStdDev);
+	const pertHighHours = pertHours + pertStdDev;
+	const pertRelativeStdDev = pertHours > 0 ? pertStdDev / pertHours : 0;
+	const highUncertainty = pertRelativeStdDev > HIGH_UNCERTAINTY_THRESHOLD;
+
+	// Spread of participants' "most likely" guesses — flags teams that haven't
+	// converged on the same understanding of scope, which averaging would hide.
+	const mStdDev = standardDeviation(participants.map((p) => p.m));
+	const mRelativeStdDev = averageM > 0 ? mStdDev / averageM : 0;
+	const teamDisagreement = mRelativeStdDev > TEAM_DISAGREEMENT_THRESHOLD;
+
 	return {
 		averageO,
 		averageM,
 		averageP,
 		pertHours,
+		pertStdDev,
+		pertVariance,
+		pertLowHours,
+		pertHighHours,
+		pertRelativeStdDev,
+		highUncertainty,
+		mStdDev,
+		mRelativeStdDev,
+		teamDisagreement,
 		peopleCount,
 		meetingHoursPerPerson: settings.meetingHoursPerPerson,
 		meetingTotalHours,

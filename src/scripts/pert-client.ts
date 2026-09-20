@@ -36,11 +36,14 @@ const avgPEl = document.getElementById('avg-p') as HTMLElement;
 const formulaEl = document.getElementById('pert-formula') as HTMLElement;
 const pertHoursEl = document.getElementById('pert-hours') as HTMLElement;
 const pertDaysEl = document.getElementById('pert-days') as HTMLElement;
+const pertConfidenceEl = document.getElementById('pert-confidence') as HTMLElement;
 const meetingHoursEl = document.getElementById('meeting-hours') as HTMLElement;
 const meetingNoteEl = document.getElementById('meeting-note') as HTMLElement;
 const finalHoursEl = document.getElementById('final-hours') as HTMLElement;
 const finalDaysEl = document.getElementById('final-days') as HTMLElement;
 const peopleNoteEl = document.getElementById('people-note') as HTMLElement;
+const uncertaintyWarningEl = document.getElementById('uncertainty-warning') as HTMLParagraphElement;
+const disagreementWarningEl = document.getElementById('disagreement-warning') as HTMLParagraphElement;
 
 const shareButton = document.getElementById('share-button') as HTMLButtonElement;
 const pngButton = document.getElementById('png-button') as HTMLButtonElement;
@@ -208,6 +211,7 @@ function renderResult(result: PertResult): void {
 
 	pertHoursEl.textContent = `${formatSwedishNumber(result.pertHours)} timmar`;
 	pertDaysEl.textContent = `≈ ${formatSwedishNumber(pertDays)} arbetsdagar`;
+	pertConfidenceEl.textContent = `68% sannolikt ${formatSwedishNumber(result.pertLowHours)}–${formatSwedishNumber(result.pertHighHours)} timmar`;
 
 	meetingHoursEl.textContent = `${formatSwedishNumber(result.meetingTotalHours)} timmar`;
 	meetingNoteEl.textContent = `${result.peopleCount} personer × ${formatSwedishNumber(result.meetingHoursPerPerson)} h ≈ ${formatSwedishNumber(meetingDays)} arbetsdagar`;
@@ -216,6 +220,16 @@ function renderResult(result: PertResult): void {
 	finalDaysEl.textContent = `≈ ${formatSwedishNumber(result.workdays)} arbetsdagar`;
 
 	peopleNoteEl.textContent = `${result.peopleCount} personer inmatade. Arbetsdag = ${formatSwedishNumber(result.hoursPerDay, 0)} timmar.`;
+
+	uncertaintyWarningEl.hidden = !result.highUncertainty;
+	uncertaintyWarningEl.textContent = result.highUncertainty
+		? 'Stor spridning mellan optimistisk och pessimistisk uppskattning — resultatet är osäkert. Överväg att dela upp uppgiften.'
+		: '';
+
+	disagreementWarningEl.hidden = !result.teamDisagreement;
+	disagreementWarningEl.textContent = result.teamDisagreement
+		? 'Deltagarna är inte överens om hur lång tid uppgiften tar — se över era "mest sannolik"-uppskattningar tillsammans.'
+		: '';
 }
 
 function render(): void {
@@ -226,6 +240,8 @@ function render(): void {
 
 	if (!validation.valid) {
 		applyErrors(validation.errors, rows);
+		uncertaintyWarningEl.hidden = true;
+		disagreementWarningEl.hidden = true;
 		resultPanel.hidden = true;
 		resultEmptyEl.hidden = false;
 		shareButton.disabled = true;

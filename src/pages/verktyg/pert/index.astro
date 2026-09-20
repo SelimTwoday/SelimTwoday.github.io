@@ -49,6 +49,21 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 						</div>
 					</div>
 
+					<div id="pert-warnings" class="result-warnings" aria-live="polite">
+						<p
+							id="uncertainty-warning"
+							class="status-message result-warning"
+							data-tone="warning"
+							hidden
+						></p>
+						<p
+							id="disagreement-warning"
+							class="status-message result-warning"
+							data-tone="warning"
+							hidden
+						></p>
+					</div>
+
 					<div class="settings card">
 						<h2 class="settings__title">Inställningar</h2>
 						<div class="settings__grid">
@@ -148,6 +163,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 							<div class="result-final__label">PERT (utan möten)</div>
 							<div class="result-final__value" id="pert-hours">–</div>
 							<div class="result-final__sub" id="pert-days"></div>
+							<div class="result-final__sub" id="pert-confidence"></div>
 						</div>
 						<div class="result-final__item">
 							<div class="result-final__label">Tid lagd på estimering</div>
@@ -160,7 +176,6 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 							<div class="result-final__sub" id="final-days"></div>
 						</div>
 					</div>
-
 					<p class="result-note" id="people-note"></p>
 				</section>
 				
@@ -615,6 +630,32 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		font-size: 0.85rem;
 		color: var(--color-text-muted);
 		line-height: 1.3;
+	}
+
+	.result-warnings {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+	}
+
+	.result-warnings:has(.result-warning:not([hidden])) {
+		margin-bottom: 1.25rem;
+	}
+
+	.result-warning {
+		margin: 0;
+		font-size: 0.88rem;
+		line-height: 1.4;
+	}
+
+	.result-warning[hidden] {
+		display: none;
+	}
+
+	.status-message[data-tone='warning'] {
+		background: color-mix(in srgb, #f5a524 12%, var(--color-bg-elevated));
+		border-color: color-mix(in srgb, #f5a524 45%, transparent);
+		color: color-mix(in srgb, #f5a524 65%, var(--color-text));
 	}
 
 	@media (max-width: 640px) {

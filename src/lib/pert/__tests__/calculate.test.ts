@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { average, calculatePert, pertFormula } from '../calculate';
+import {
+	average,
+	calculatePert,
+	HIGH_UNCERTAINTY_THRESHOLD,
+	pertFormula,
+	standardDeviation,
+	TEAM_DISAGREEMENT_THRESHOLD,
+} from '../calculate';
 
 describe('pertFormula', () => {
 	it('computes the classic three-point weighted average', () => {
@@ -14,6 +21,17 @@ describe('pertFormula', () => {
 describe('average', () => {
 	it('averages a list of numbers', () => {
 		expect(average([6, 8, 8, 10])).toBe(8);
+	});
+});
+
+describe('standardDeviation', () => {
+	it('returns 0 for identical values', () => {
+		expect(standardDeviation([5, 5, 5])).toBe(0);
+	});
+
+	it('computes the population standard deviation', () => {
+		// mean = 5, squared deviations = [4, 0, 4], variance = 8/3
+		expect(standardDeviation([3, 5, 7])).toBeCloseTo(Math.sqrt(8 / 3), 10);
 	});
 });
 
@@ -66,5 +84,72 @@ describe('calculatePert', () => {
 		expect(result.pertHours).toBe(8);
 		expect(result.finalHours).toBe(8);
 		expect(result.workdays).toBe(2);
+	});
+
+	it('computes the PERT confidence interval from the O-P spread', () => {
+		const participants = [{ o: 6, m: 14, p: 34 }];
+		const settings = { meetingHoursPerPerson: 0, hoursPerDay: 8 };
+
+		const result = calculatePert(participants, settings);
+
+		const expectedStdDev = (34 - 6) / 6;
+		expect(result.pertStdDev).toBeCloseTo(expectedStdDev, 10);
+		expect(result.pertVariance).toBeCloseTo(expectedStdDev ** 2, 10);
+		expect(result.pertLowHours).toBeCloseTo(result.pertHours - expectedStdDev, 10);
+		expect(result.pertHighHours).toBeCloseTo(result.pertHours + expectedStdDev, 10);
+	});
+
+	it('clamps the low end of the confidence interval to 0', () => {
+		const participants = [{ o: 0, m: 0, p: 6 }];
+		const settings = { meetingHoursPerPerson: 0, hoursPerDay: 8 };
+
+		const result = calculatePert(participants, settings);
+
+		expect(result.pertLowHours).toBe(0);
+	});
+
+	it('flags high uncertainty when the O-P spread is large relative to the estimate', () => {
+		const participants = [{ o: 1, m: 2, p: 20 }];
+		const settings = { meetingHoursPerPerson: 0, hoursPerDay: 8 };
+
+		const result = calculatePert(participants, settings);
+
+		expect(result.pertRelativeStdDev).toBeGreaterThan(HIGH_UNCERTAINTY_THRESHOLD);
+		expect(result.highUncertainty).toBe(true);
+	});
+
+	it('does not flag high uncertainty for a tight O-P spread', () => {
+		const participants = [{ o: 9, m: 10, p: 11 }];
+		const settings = { meetingHoursPerPerson: 0, hoursPerDay: 8 };
+
+		const result = calculatePert(participants, settings);
+
+		expect(result.highUncertainty).toBe(false);
+	});
+
+	it('flags team disagreement when participants diverge on "most likely"', () => {
+		const participants = [
+			{ o: 1, m: 2, p: 3 },
+			{ o: 1, m: 20, p: 30 },
+		];
+		const settings = { meetingHoursPerPerson: 0, hoursPerDay: 8 };
+
+		const result = calculatePert(participants, settings);
+
+		expect(result.mRelativeStdDev).toBeGreaterThan(TEAM_DISAGREEMENT_THRESHOLD);
+		expect(result.teamDisagreement).toBe(true);
+	});
+
+	it('does not flag team disagreement when participants agree', () => {
+		const participants = [
+			{ o: 1, m: 2, p: 3 },
+			{ o: 1, m: 2, p: 4 },
+			{ o: 2, m: 2, p: 3 },
+		];
+		const settings = { meetingHoursPerPerson: 0, hoursPerDay: 8 };
+
+		const result = calculatePert(participants, settings);
+
+		expect(result.teamDisagreement).toBe(false);
 	});
 });
