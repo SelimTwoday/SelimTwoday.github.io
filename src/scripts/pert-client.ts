@@ -47,8 +47,10 @@ const disagreementWarningEl = document.getElementById('disagreement-warning') as
 
 const shareButton = document.getElementById('share-button') as HTMLButtonElement;
 const pngButton = document.getElementById('png-button') as HTMLButtonElement;
+const combinedButton = document.getElementById('combined-button') as HTMLButtonElement;
 const shareStatus = document.getElementById('share-status') as HTMLParagraphElement;
 const pngStatus = document.getElementById('png-status') as HTMLParagraphElement;
+const combinedStatus = document.getElementById('combined-status') as HTMLParagraphElement;
 
 function getRows(): RowRefs[] {
 	return Array.from(rowsList.querySelectorAll<HTMLLIElement>('li.participant-row')).map((li) => ({
@@ -84,6 +86,7 @@ function updateRemoveButtons(): void {
 function clearActionStatus(): void {
 	shareStatus.textContent = '';
 	pngStatus.textContent = '';
+	combinedStatus.textContent = '';
 }
 
 function createRow(values?: ParticipantRowInput): HTMLLIElement {
@@ -246,6 +249,7 @@ function render(): void {
 		resultEmptyEl.hidden = false;
 		shareButton.disabled = true;
 		pngButton.disabled = true;
+		combinedButton.disabled = true;
 		return;
 	}
 
@@ -254,6 +258,7 @@ function render(): void {
 	resultEmptyEl.hidden = true;
 	shareButton.disabled = false;
 	pngButton.disabled = false;
+	combinedButton.disabled = false;
 
 	// Keep the address bar in sync so refreshing or bookmarking reproduces
 	// the exact same result without requiring an explicit share action.
@@ -285,6 +290,39 @@ function downloadBlob(blob: Blob): void {
 	link.click();
 	link.remove();
 	URL.revokeObjectURL(url);
+}
+
+// The result panel's box-shadow can bleed into the capture at the rounded
+// corners, so it's temporarily removed while the image is generated.
+async function capturePngBlob(): Promise<Blob> {
+	const previousBoxShadow = resultPanel.style.boxShadow;
+	resultPanel.style.boxShadow = 'none';
+	await new Promise((resolve) => requestAnimationFrame(resolve));
+
+	try {
+		const blob = await toBlob(resultPanel, { pixelRatio: 2 });
+		if (!blob) throw new Error('Kunde inte generera bilden.');
+		return blob;
+	} finally {
+		resultPanel.style.boxShadow = previousBoxShadow;
+	}
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = () => reject(reader.error);
+		reader.readAsDataURL(blob);
+	});
+}
+
+function escapeHtml(value: string): string {
+	return value
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
 }
 
 addRowButton.addEventListener('click', () => {
@@ -323,16 +361,8 @@ shareButton.addEventListener('click', async () => {
 pngButton.addEventListener('click', async () => {
 	pngStatus.textContent = 'Skapar bild …';
 
-	// The result panel's box-shadow can bleed into the capture at the
-	// rounded corners, so it's temporarily removed while the image is
-	// generated and restored afterwards either way. 
-	const previousBoxShadow = resultPanel.style.boxShadow;
-	resultPanel.style.boxShadow = 'none';
-	await new Promise((resolve) => requestAnimationFrame(resolve));
-
 	try {
-		const blob = await toBlob(resultPanel, { pixelRatio: 2 });
-		if (!blob) throw new Error('Kunde inte generera bilden.');
+		const blob = await capturePngBlob();
 
 		if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
 			try {
@@ -350,8 +380,61 @@ pngButton.addEventListener('click', async () => {
 			'Din webbläsare stödjer inte att kopiera bilder till urklipp — filen laddades ner istället.';
 	} catch {
 		pngStatus.textContent = 'Något gick fel när bilden skulle skapas. Försök igen.';
-	} finally {
-		resultPanel.style.boxShadow = previousBoxShadow;
+	}
+});
+
+combinedButton.addEventListener('click', async () => {
+	const rows = getRows();
+	const validation = validatePertForm(collectRowInputs(rows), collectSettingsInput());
+	if (!validation.valid) return;
+
+	const url = buildPertShareUrl(
+		window.location.origin + window.location.pathname,
+		validation.participants,
+		validation.settings,
+	);
+
+	combinedStatus.textContent = 'Skapar bild …';
+
+	let blob: Blob;
+	try {
+		blob = await capturePngBlob();
+	} catch {
+		combinedStatus.textContent = 'Något gick fel när bilden skulle skapas. Försök igen.';
+		return;
+	}
+
+	try {
+		if (!navigator.clipboard || typeof ClipboardItem === 'undefined' || !window.isSecureContext) {
+			throw new Error('Clipboard API är inte tillgängligt i den här miljön.');
+		}
+
+		// A single text/html representation with an inline image plus a link lets
+		// rich-text targets (Jira, Confluence, Docs, …) paste both in one go.
+		const dataUrl = await blobToDataUrl(blob);
+		const escapedUrl = escapeHtml(url);
+		const html = `<img src="${dataUrl}" alt="PERT-resultat" /><p><a href="${escapedUrl}">${escapedUrl}</a></p>`;
+
+		await navigator.clipboard.write([
+			new ClipboardItem({
+				'text/html': new Blob([html], { type: 'text/html' }),
+				'text/plain': new Blob([url], { type: 'text/plain' }),
+				'image/png': blob,
+			}),
+		]);
+		combinedStatus.textContent = 'Bild och länk har kopierats. Klistra in i t.ex. Jira.';
+	} catch {
+		// Rich clipboard writes aren't supported everywhere — fall back to
+		// downloading the image and copying just the link as plain text.
+		downloadBlob(blob);
+		try {
+			if (!navigator.clipboard || !window.isSecureContext) throw new Error('no clipboard');
+			await navigator.clipboard.writeText(url);
+			combinedStatus.textContent =
+				'Kunde inte kopiera bild och länk tillsammans. Länken kopierades till urklipp och bilden laddades ner separat.';
+		} catch {
+			combinedStatus.textContent = `Kunde inte kopiera automatiskt. Bilden laddades ner. Här är länken: ${url}`;
+		}
 	}
 });
 

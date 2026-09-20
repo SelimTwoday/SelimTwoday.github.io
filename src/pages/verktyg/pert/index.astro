@@ -183,12 +183,16 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 					<button type="button" id="share-button" class="button button-secondary" disabled>
 						Kopiera länk
 					</button>
-					<button type="button" id="png-button" class="button button-primary" disabled>
+					<button type="button" id="png-button" class="button button-secondary" disabled>
 						Kopiera bild (PNG)
+					</button>
+					<button type="button" id="combined-button" class="button button-primary" disabled>
+						Kopiera bild + länk
 					</button>
 				</div>
 				<p id="share-status" class="action-status" role="status" aria-live="polite"></p>
 				<p id="png-status" class="action-status" role="status" aria-live="polite"></p>
+				<p id="combined-status" class="action-status" role="status" aria-live="polite"></p>
 			</div>
 		</div>
 	</div>
