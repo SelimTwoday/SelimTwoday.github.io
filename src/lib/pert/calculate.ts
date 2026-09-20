@@ -53,6 +53,11 @@ export function calculatePert(
 	const pertRelativeStdDev = pertHours > 0 ? pertStdDev / pertHours : 0;
 	const highUncertainty = pertRelativeStdDev > HIGH_UNCERTAINTY_THRESHOLD;
 
+	// Meeting time is a fixed cost, not a random variable, so it shifts the
+	// interval without widening it.
+	const finalLowHours = pertLowHours + meetingTotalHours;
+	const finalHighHours = pertHighHours + meetingTotalHours;
+
 	// Spread of participants' "most likely" guesses — flags teams that haven't
 	// converged on the same understanding of scope, which averaging would hide.
 	const mStdDev = standardDeviation(participants.map((p) => p.m));
@@ -70,6 +75,8 @@ export function calculatePert(
 		pertHighHours,
 		pertRelativeStdDev,
 		highUncertainty,
+		finalLowHours,
+		finalHighHours,
 		mStdDev,
 		mRelativeStdDev,
 		teamDisagreement,

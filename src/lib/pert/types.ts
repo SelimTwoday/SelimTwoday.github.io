@@ -44,6 +44,10 @@ export interface PertResult {
 	pertRelativeStdDev: number;
 	/** True when pertRelativeStdDev exceeds HIGH_UNCERTAINTY_THRESHOLD. */
 	highUncertainty: boolean;
+	/** finalHours - pertStdDev (via pertLowHours), clamped to 0 - lower bound of the interval. */
+	finalLowHours: number;
+	/** finalHours + pertStdDev (via pertHighHours) - upper bound of the interval. */
+	finalHighHours: number;
 	/** Population standard deviation of participants' "most likely" (m) values. */
 	mStdDev: number;
 	/** mStdDev / averageM - how much participants disagree relative to the average. */

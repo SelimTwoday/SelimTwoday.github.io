@@ -160,10 +160,9 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 					<div class="result-final">
 						<div class="result-final__item">
-							<div class="result-final__label">PERT (utan möten)</div>
+							<div class="result-final__label">PERT (exkl estimering)</div>
 							<div class="result-final__value" id="pert-hours">–</div>
 							<div class="result-final__sub" id="pert-days"></div>
-							<div class="result-final__sub" id="pert-confidence"></div>
 						</div>
 						<div class="result-final__item">
 							<div class="result-final__label">Tid lagd på estimering</div>
@@ -174,6 +173,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 							<div class="result-final__label">Slutgiltigt resultat</div>
 							<div class="result-final__value" id="final-hours">–</div>
 							<div class="result-final__sub" id="final-days"></div>
+							<div class="result-final__sub" id="pert-confidence"></div>
 						</div>
 					</div>
 					<p class="result-note" id="people-note"></p>
@@ -547,7 +547,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		gap: 1rem;
-		margin-bottom: 1.25rem;
+		margin-bottom: 0.9rem;
 	}
 
 	.result-box {
@@ -577,7 +577,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		background: var(--color-bg-elevated-2);
 		border-radius: var(--radius-md);
 		padding: 0.85rem 1rem;
-		margin: 0 0 1.5rem;
+		margin: 0 0 0.9rem;
 		font-size: 0.95rem;
 		line-height: 1.3;
 		color: var(--color-text-muted);

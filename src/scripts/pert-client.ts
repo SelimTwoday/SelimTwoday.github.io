@@ -211,13 +211,13 @@ function renderResult(result: PertResult): void {
 
 	pertHoursEl.textContent = `${formatSwedishNumber(result.pertHours)} timmar`;
 	pertDaysEl.textContent = `≈ ${formatSwedishNumber(pertDays)} arbetsdagar`;
-	pertConfidenceEl.textContent = `68% sannolikt ${formatSwedishNumber(result.pertLowHours)}–${formatSwedishNumber(result.pertHighHours)} timmar`;
 
 	meetingHoursEl.textContent = `${formatSwedishNumber(result.meetingTotalHours)} timmar`;
 	meetingNoteEl.textContent = `${result.peopleCount} personer × ${formatSwedishNumber(result.meetingHoursPerPerson)} h ≈ ${formatSwedishNumber(meetingDays)} arbetsdagar`;
 
 	finalHoursEl.textContent = `${formatSwedishNumber(result.finalHours)} timmar`;
 	finalDaysEl.textContent = `≈ ${formatSwedishNumber(result.workdays)} arbetsdagar`;
+	pertConfidenceEl.textContent = `Sannolikt ${formatSwedishNumber(result.finalLowHours)}–${formatSwedishNumber(result.finalHighHours)} timmar`;
 
 	peopleNoteEl.textContent = `${result.peopleCount} personer inmatade. Arbetsdag = ${formatSwedishNumber(result.hoursPerDay, 0)} timmar.`;
 

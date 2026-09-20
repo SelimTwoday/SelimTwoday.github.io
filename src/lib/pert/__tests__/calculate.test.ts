@@ -108,6 +108,16 @@ describe('calculatePert', () => {
 		expect(result.pertLowHours).toBe(0);
 	});
 
+	it('shifts the final confidence interval by the fixed meeting time', () => {
+		const participants = [{ o: 6, m: 14, p: 34 }];
+		const settings = { meetingHoursPerPerson: 2, hoursPerDay: 8 };
+
+		const result = calculatePert(participants, settings);
+
+		expect(result.finalLowHours).toBeCloseTo(result.pertLowHours + result.meetingTotalHours, 10);
+		expect(result.finalHighHours).toBeCloseTo(result.pertHighHours + result.meetingTotalHours, 10);
+	});
+
 	it('flags high uncertainty when the O-P spread is large relative to the estimate', () => {
 		const participants = [{ o: 1, m: 2, p: 20 }];
 		const settings = { meetingHoursPerPerson: 0, hoursPerDay: 8 };
