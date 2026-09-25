@@ -49,6 +49,13 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 						</div>
 					</div>
 
+					<p class="pert-estimate-reminder">
+						Tänk på att inkludera tiden för själva arbetsinsatsen, genomgång av risker,
+						eventuell databashämtning, skapande av tester och PR-granskning. 
+						Väg även in behov av spetskompetens och domänkunskap,
+						beroenden, tekniska frågetecken, integration och dokumentation.
+					</p>
+
 					<div id="pert-warnings" class="result-warnings" aria-live="polite">
 						<p
 							id="uncertainty-warning"
@@ -353,6 +360,14 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 	.participants {
 		padding: 1rem 1.25rem 1.25rem;
 		margin-bottom: 1.25rem;
+	}
+
+	.pert-estimate-reminder {
+		padding-inline: 1.25rem;
+		margin: 0 0 1.25rem;
+		color: var(--color-text-muted);
+		font-size: 0.9rem;
+		line-height: 1.5;
 	}
 
 	.participants__header {
