@@ -1,18 +1,25 @@
 import { toBlob } from 'html-to-image';
 import {
 	buildPertShareUrl,
+	buildTaskPertShareUrl,
 	DEFAULT_HOURS_PER_DAY,
 	formatSwedishNumber,
 	parsePertSearchParams,
 	validatePertForm,
+	validateTaskPertForm,
 	type FieldError,
 	type ParticipantRowInput,
 	type PertResult,
 	type PertSettingsInput,
+	type TaskPertResult,
+	type TaskRowInput,
 } from '../lib/pert';
+
+type PertMode = 'participants' | 'tasks';
 
 interface RowRefs {
 	li: HTMLLIElement;
+	titleInput?: HTMLInputElement;
 	oInput: HTMLInputElement;
 	mInput: HTMLInputElement;
 	pInput: HTMLInputElement;
@@ -20,9 +27,17 @@ interface RowRefs {
 	removeButton: HTMLButtonElement;
 }
 
-const rowsList = document.getElementById('participant-rows') as HTMLUListElement;
-const rowTemplate = document.getElementById('row-template') as HTMLTemplateElement;
-const addRowButton = document.getElementById('add-row-button') as HTMLButtonElement;
+const modeInputs = Array.from(
+	document.querySelectorAll<HTMLInputElement>('input[name="pert-mode"]'),
+);
+const participantForm = document.getElementById('participant-form') as HTMLFormElement;
+const taskForm = document.getElementById('task-form') as HTMLFormElement;
+const participantRowsList = document.getElementById('participant-rows') as HTMLUListElement;
+const taskRowsList = document.getElementById('task-rows') as HTMLUListElement;
+const participantRowTemplate = document.getElementById('row-template') as HTMLTemplateElement;
+const taskRowTemplate = document.getElementById('task-row-template') as HTMLTemplateElement;
+const addParticipantButton = document.getElementById('add-row-button') as HTMLButtonElement;
+const addTaskButton = document.getElementById('add-task-button') as HTMLButtonElement;
 const participantCountEl = document.getElementById('participant-count') as HTMLElement;
 const meetingInput = document.getElementById('meeting-hours-input') as HTMLInputElement;
 const meetingErrorEl = document.getElementById('meeting-hours-error') as HTMLParagraphElement;
@@ -30,6 +45,9 @@ const globalErrorsEl = document.getElementById('pert-errors') as HTMLDivElement;
 
 const resultPanel = document.getElementById('pert-result-panel') as HTMLElement;
 const resultEmptyEl = document.getElementById('pert-result-empty') as HTMLElement;
+const resultEmptyCopy = document.getElementById('result-empty-copy') as HTMLParagraphElement;
+const participantResultEl = document.getElementById('participant-result') as HTMLElement;
+const taskResultEl = document.getElementById('task-result') as HTMLElement;
 const avgOEl = document.getElementById('avg-o') as HTMLElement;
 const avgMEl = document.getElementById('avg-m') as HTMLElement;
 const avgPEl = document.getElementById('avg-p') as HTMLElement;
@@ -45,6 +63,18 @@ const peopleNoteEl = document.getElementById('people-note') as HTMLElement;
 const uncertaintyWarningEl = document.getElementById('uncertainty-warning') as HTMLParagraphElement;
 const disagreementWarningEl = document.getElementById('disagreement-warning') as HTMLParagraphElement;
 
+const taskTotalOEl = document.getElementById('task-total-o') as HTMLElement;
+const taskTotalMEl = document.getElementById('task-total-m') as HTMLElement;
+const taskTotalPEl = document.getElementById('task-total-p') as HTMLElement;
+const taskExpectedHoursEl = document.getElementById('task-expected-hours') as HTMLElement;
+const taskExpectedDaysEl = document.getElementById('task-expected-days') as HTMLElement;
+const taskStandardDeviationEl = document.getElementById(
+	'task-standard-deviation',
+) as HTMLElement;
+const confidenceListEl = document.getElementById('confidence-list') as HTMLElement;
+const taskBreakdownEl = document.getElementById('task-breakdown') as HTMLElement;
+const taskNoteEl = document.getElementById('task-note') as HTMLElement;
+
 const shareButton = document.getElementById('share-button') as HTMLButtonElement;
 const pngButton = document.getElementById('png-button') as HTMLButtonElement;
 const combinedButton = document.getElementById('combined-button') as HTMLButtonElement;
@@ -52,9 +82,14 @@ const shareStatus = document.getElementById('share-status') as HTMLParagraphElem
 const pngStatus = document.getElementById('png-status') as HTMLParagraphElement;
 const combinedStatus = document.getElementById('combined-status') as HTMLParagraphElement;
 
-function getRows(): RowRefs[] {
-	return Array.from(rowsList.querySelectorAll<HTMLLIElement>('li.participant-row')).map((li) => ({
+let mode: PertMode = 'participants';
+
+function getRows(list: HTMLUListElement, includeTitle = false): RowRefs[] {
+	return Array.from(list.querySelectorAll<HTMLLIElement>('li.participant-row')).map((li) => ({
 		li,
+		titleInput: includeTitle
+			? (li.querySelector('.field-title') as HTMLInputElement)
+			: undefined,
 		oInput: li.querySelector('.field-o') as HTMLInputElement,
 		mInput: li.querySelector('.field-m') as HTMLInputElement,
 		pInput: li.querySelector('.field-p') as HTMLInputElement,
@@ -68,19 +103,29 @@ function formatParticipantCount(count: number): string {
 }
 
 function syncParticipantMeta(): void {
-	const rows = getRows();
+	const rows = getRows(participantRowsList);
 	participantCountEl.textContent = formatParticipantCount(rows.length);
 	rows.forEach((row, index) => {
 		row.removeButton.setAttribute('aria-label', `Ta bort deltagare ${index + 1}`);
 	});
 }
 
-function updateRemoveButtons(): void {
-	const rows = getRows();
-	const disable = rows.length <= 1;
-	rows.forEach((row) => {
-		row.removeButton.disabled = disable;
+function getActiveRows(): RowRefs[] {
+	return mode === 'participants'
+		? getRows(participantRowsList)
+		: getRows(taskRowsList, true);
+}
+
+function renumberRows(list: HTMLUListElement, label: string): void {
+	getRows(list, list === taskRowsList).forEach((row, index) => {
+		const title = row.li.querySelector('.participant-row__title');
+		if (title) title.textContent = `${label} ${index + 1}`;
 	});
+}
+
+function updateRemoveButtons(list: HTMLUListElement): void {
+	const rows = getRows(list, list === taskRowsList);
+	for (const row of rows) row.removeButton.disabled = rows.length <= 1;
 }
 
 function clearActionStatus(): void {
@@ -89,21 +134,9 @@ function clearActionStatus(): void {
 	combinedStatus.textContent = '';
 }
 
-function createRow(values?: ParticipantRowInput): HTMLLIElement {
-	const fragment = rowTemplate.content.cloneNode(true) as DocumentFragment;
-	const li = fragment.querySelector('li.participant-row') as HTMLLIElement;
-
-	const oInput = li.querySelector('.field-o') as HTMLInputElement;
-	const mInput = li.querySelector('.field-m') as HTMLInputElement;
-	const pInput = li.querySelector('.field-p') as HTMLInputElement;
-
-	if (values) {
-		oInput.value = values.o;
-		mInput.value = values.m;
-		pInput.value = values.p;
-	}
-
-	for (const input of [oInput, mInput, pInput]) {
+function bindRow(li: HTMLLIElement, list: HTMLUListElement, label: string): HTMLLIElement {
+	const inputs = Array.from(li.querySelectorAll<HTMLInputElement>('input'));
+	for (const input of inputs) {
 		input.addEventListener('input', () => {
 			clearActionStatus();
 			render();
@@ -112,35 +145,81 @@ function createRow(values?: ParticipantRowInput): HTMLLIElement {
 
 	const removeButton = li.querySelector('.participant-row__remove') as HTMLButtonElement;
 	removeButton.addEventListener('click', () => {
-		const rows = getRows();
+		const rows = getRows(list, list === taskRowsList);
 		const removedIndex = rows.findIndex((row) => row.li === li);
 		li.remove();
-		syncParticipantMeta();
-		updateRemoveButtons();
+		if (list === participantRowsList) syncParticipantMeta();
+		renumberRows(list, label);
+		updateRemoveButtons(list);
 		clearActionStatus();
 		render();
 
-		const remainingRows = getRows();
+		const remainingRows = getRows(list, list === taskRowsList);
 		const focusRow = remainingRows[removedIndex] ?? remainingRows[removedIndex - 1];
-		(focusRow ? focusRow.oInput : addRowButton).focus();
+		(focusRow ? (focusRow.titleInput ?? focusRow.oInput) : list === participantRowsList ? addParticipantButton : addTaskButton).focus();
 	});
 
 	return li;
 }
 
-function addRow(values?: ParticipantRowInput, options?: { focus?: boolean }): void {
-	const li = createRow(values);
-	rowsList.appendChild(li);
-	syncParticipantMeta();
-	updateRemoveButtons();
-
-	if (options?.focus) {
-		(li.querySelector('.field-o') as HTMLInputElement).focus();
+function addParticipantRow(
+	values?: ParticipantRowInput,
+	options?: { focus?: boolean },
+): void {
+	const fragment = participantRowTemplate.content.cloneNode(true) as DocumentFragment;
+	const li = fragment.querySelector('li.participant-row') as HTMLLIElement;
+	const row = getRowsFromElement(li);
+	if (values) {
+		row.oInput.value = values.o;
+		row.mInput.value = values.m;
+		row.pInput.value = values.p;
 	}
+	participantRowsList.appendChild(bindRow(li, participantRowsList, 'Person'));
+	syncParticipantMeta();
+	updateRemoveButtons(participantRowsList);
+	if (options?.focus) row.oInput.focus();
 }
 
-function collectRowInputs(rows: RowRefs[]): ParticipantRowInput[] {
+function addTaskRow(values?: TaskRowInput): void {
+	const fragment = taskRowTemplate.content.cloneNode(true) as DocumentFragment;
+	const li = fragment.querySelector('li.participant-row') as HTMLLIElement;
+	const row = getRowsFromElement(li, true);
+	if (values && row.titleInput) {
+		row.titleInput.value = values.title;
+		row.oInput.value = values.o;
+		row.mInput.value = values.m;
+		row.pInput.value = values.p;
+	}
+	taskRowsList.appendChild(bindRow(li, taskRowsList, 'Deluppgift'));
+	renumberRows(taskRowsList, 'Deluppgift');
+	updateRemoveButtons(taskRowsList);
+}
+
+function getRowsFromElement(li: HTMLLIElement, includeTitle = false): RowRefs {
+	return {
+		li,
+		titleInput: includeTitle
+			? (li.querySelector('.field-title') as HTMLInputElement)
+			: undefined,
+		oInput: li.querySelector('.field-o') as HTMLInputElement,
+		mInput: li.querySelector('.field-m') as HTMLInputElement,
+		pInput: li.querySelector('.field-p') as HTMLInputElement,
+		errorEl: li.querySelector('.participant-row__error') as HTMLParagraphElement,
+		removeButton: li.querySelector('.participant-row__remove') as HTMLButtonElement,
+	};
+}
+
+function collectParticipantInputs(rows: RowRefs[]): ParticipantRowInput[] {
 	return rows.map((row) => ({
+		o: row.oInput.value,
+		m: row.mInput.value,
+		p: row.pInput.value,
+	}));
+}
+
+function collectTaskInputs(rows: RowRefs[]): TaskRowInput[] {
+	return rows.map((row) => ({
+		title: row.titleInput?.value ?? '',
 		o: row.oInput.value,
 		m: row.mInput.value,
 		p: row.pInput.value,
@@ -156,6 +235,7 @@ function collectSettingsInput(): PertSettingsInput {
 
 function clearFieldStates(rows: RowRefs[]): void {
 	for (const row of rows) {
+		row.titleInput?.removeAttribute('aria-invalid');
 		row.oInput.removeAttribute('aria-invalid');
 		row.mInput.removeAttribute('aria-invalid');
 		row.pInput.removeAttribute('aria-invalid');
@@ -171,23 +251,29 @@ function applyErrors(errors: FieldError[], rows: RowRefs[]): void {
 	const globalMessages: string[] = [];
 
 	for (const error of errors) {
-		const rowFieldMatch = /^row-(\d+)-(o|m|p)$/.exec(error.field);
-		const rowOrderMatch = /^row-(\d+)-order$/.exec(error.field);
+		const numberFieldMatch = /^row-(\d+)-(o|m|p)$/.exec(error.field);
+		const orderMatch = /^row-(\d+)-order$/.exec(error.field);
+		const titleMatch = /^task-(\d+)-title$/.exec(error.field);
 
-		if (rowFieldMatch) {
-			const row = rows[Number(rowFieldMatch[1])];
+		if (numberFieldMatch) {
+			const row = rows[Number(numberFieldMatch[1])];
 			if (!row) continue;
-			const key = rowFieldMatch[2];
+			const key = numberFieldMatch[2];
 			const input = key === 'o' ? row.oInput : key === 'm' ? row.mInput : row.pInput;
 			input.setAttribute('aria-invalid', 'true');
 			if (!row.errorEl.textContent) row.errorEl.textContent = error.message;
-		} else if (rowOrderMatch) {
-			const row = rows[Number(rowOrderMatch[1])];
+		} else if (orderMatch) {
+			const row = rows[Number(orderMatch[1])];
 			if (!row) continue;
 			row.oInput.setAttribute('aria-invalid', 'true');
 			row.mInput.setAttribute('aria-invalid', 'true');
 			row.pInput.setAttribute('aria-invalid', 'true');
 			row.errorEl.textContent = error.message;
+		} else if (titleMatch) {
+			const row = rows[Number(titleMatch[1])];
+			if (!row?.titleInput) continue;
+			row.titleInput.setAttribute('aria-invalid', 'true');
+			if (!row.errorEl.textContent) row.errorEl.textContent = error.message;
 		} else if (error.field === 'settings-meetingHoursPerPerson') {
 			meetingInput.setAttribute('aria-invalid', 'true');
 			meetingErrorEl.textContent = error.message;
@@ -202,26 +288,21 @@ function applyErrors(errors: FieldError[], rows: RowRefs[]): void {
 	}
 }
 
-function renderResult(result: PertResult): void {
+function renderParticipantResult(result: PertResult): void {
 	const pertDays = result.pertHours / result.hoursPerDay;
 	const meetingDays = result.meetingTotalHours / result.hoursPerDay;
 
 	avgOEl.textContent = `${formatSwedishNumber(result.averageO)} h`;
 	avgMEl.textContent = `${formatSwedishNumber(result.averageM)} h`;
 	avgPEl.textContent = `${formatSwedishNumber(result.averageP)} h`;
-
 	formulaEl.textContent = `PERT = (${formatSwedishNumber(result.averageO)} + 4 × ${formatSwedishNumber(result.averageM)} + ${formatSwedishNumber(result.averageP)}) / 6`;
-
 	pertHoursEl.textContent = `${formatSwedishNumber(result.pertHours)} timmar`;
 	pertDaysEl.textContent = `≈ ${formatSwedishNumber(pertDays)} arbetsdagar`;
-
 	meetingHoursEl.textContent = `${formatSwedishNumber(result.meetingTotalHours)} timmar`;
 	meetingNoteEl.textContent = `${result.peopleCount} personer × ${formatSwedishNumber(result.meetingHoursPerPerson)} h ≈ ${formatSwedishNumber(meetingDays)} arbetsdagar`;
-
 	finalHoursEl.textContent = `${formatSwedishNumber(result.finalHours)} timmar`;
 	finalDaysEl.textContent = `≈ ${formatSwedishNumber(result.workdays)} arbetsdagar`;
 	pertConfidenceEl.textContent = `Sannolikt ${formatSwedishNumber(result.finalLowHours)}–${formatSwedishNumber(result.finalHighHours)} timmar`;
-
 	peopleNoteEl.textContent = `${result.peopleCount} personer inmatade. Arbetsdag = ${formatSwedishNumber(result.hoursPerDay, 0)} timmar.`;
 
 	uncertaintyWarningEl.hidden = !result.highUncertainty;
@@ -235,39 +316,155 @@ function renderResult(result: PertResult): void {
 		: '';
 }
 
+function renderTaskResult(result: TaskPertResult): void {
+	taskTotalOEl.textContent = `${formatSwedishNumber(result.totalO)} h`;
+	taskTotalMEl.textContent = `${formatSwedishNumber(result.totalM)} h`;
+	taskTotalPEl.textContent = `${formatSwedishNumber(result.totalP)} h`;
+	taskExpectedHoursEl.textContent = `${formatSwedishNumber(result.expectedHours)} timmar`;
+	taskExpectedDaysEl.textContent = `≈ ${formatSwedishNumber(result.workdays)} arbetsdagar`;
+	taskStandardDeviationEl.textContent = `${formatSwedishNumber(result.standardDeviation, 2)} timmar`;
+
+	confidenceListEl.replaceChildren(
+		...result.confidenceIntervals.map((interval) => {
+			const row = document.createElement('div');
+			row.className = 'confidence-row';
+
+			const level = document.createElement('span');
+			level.className = 'confidence-row__level';
+			level.textContent = `±${interval.standardDeviations} SD (${interval.confidence})`;
+
+			const calculation = document.createElement('span');
+			calculation.className = 'confidence-row__calculation';
+			calculation.textContent = `${formatSwedishNumber(result.expectedHours)} ± ${formatSwedishNumber(interval.standardDeviations * result.standardDeviation, 2)}`;
+
+			const range = document.createElement('span');
+			range.className = 'confidence-row__interval';
+			range.textContent = `${formatSwedishNumber(interval.lowerHours)}–${formatSwedishNumber(interval.upperHours)} h`;
+
+			row.append(level, calculation, range);
+			return row;
+		}),
+	);
+
+	taskBreakdownEl.replaceChildren(
+		...result.tasks.map((task) => {
+			const row = document.createElement('div');
+			row.className = 'task-breakdown__row';
+
+			const title = document.createElement('span');
+			title.className = 'task-breakdown__title';
+			title.textContent = task.title;
+
+			const value = document.createElement('span');
+			value.className = 'task-breakdown__value';
+			value.textContent = `${formatSwedishNumber(task.expectedHours)} h`;
+
+			row.append(title, value);
+			return row;
+		}),
+	);
+
+	taskNoteEl.textContent = `${result.tasks.length} deluppgifter. Arbetsdag = ${formatSwedishNumber(result.hoursPerDay, 0)} timmar.`;
+}
+
+function setResultVisibility(valid: boolean): void {
+	resultPanel.hidden = !valid;
+	resultEmptyEl.hidden = valid;
+	shareButton.disabled = !valid;
+	pngButton.disabled = !valid;
+	combinedButton.disabled = !valid;
+}
+
 function render(): void {
-	const rows = getRows();
+	const rows = getActiveRows();
 	clearFieldStates(rows);
+	participantResultEl.hidden = mode !== 'participants';
+	taskResultEl.hidden = mode !== 'tasks';
 
-	const validation = validatePertForm(collectRowInputs(rows), collectSettingsInput());
-
-	if (!validation.valid) {
-		applyErrors(validation.errors, rows);
-		uncertaintyWarningEl.hidden = true;
-		disagreementWarningEl.hidden = true;
-		resultPanel.hidden = true;
-		resultEmptyEl.hidden = false;
-		shareButton.disabled = true;
-		pngButton.disabled = true;
-		combinedButton.disabled = true;
+	if (mode === 'participants') {
+		const validation = validatePertForm(collectParticipantInputs(rows), collectSettingsInput());
+		if (!validation.valid) {
+			applyErrors(validation.errors, rows);
+			uncertaintyWarningEl.hidden = true;
+			disagreementWarningEl.hidden = true;
+			setResultVisibility(false);
+			return;
+		}
+		renderParticipantResult(validation.result);
+		setResultVisibility(true);
+		window.history.replaceState(
+			null,
+			'',
+			buildPertShareUrl(
+				window.location.origin + window.location.pathname,
+				validation.participants,
+				validation.settings,
+			),
+		);
 		return;
 	}
 
-	renderResult(validation.result);
-	resultPanel.hidden = false;
-	resultEmptyEl.hidden = true;
-	shareButton.disabled = false;
-	pngButton.disabled = false;
-	combinedButton.disabled = false;
-
-	// Keep the address bar in sync so refreshing or bookmarking reproduces
-	// the exact same result without requiring an explicit share action.
-	const url = buildPertShareUrl(
-		window.location.origin + window.location.pathname,
-		validation.participants,
-		validation.settings,
+	const validation = validateTaskPertForm(
+		collectTaskInputs(rows),
+		String(DEFAULT_HOURS_PER_DAY),
 	);
-	window.history.replaceState(null, '', url);
+	if (!validation.valid) {
+		applyErrors(validation.errors, rows);
+		setResultVisibility(false);
+		window.history.replaceState(null, '', `${window.location.pathname}?mode=tasks`);
+		return;
+	}
+	renderTaskResult(validation.result);
+	setResultVisibility(true);
+	window.history.replaceState(
+		null,
+		'',
+		buildTaskPertShareUrl(
+			window.location.origin + window.location.pathname,
+			validation.tasks,
+			validation.result.hoursPerDay,
+		),
+	);
+}
+
+function setMode(nextMode: PertMode): void {
+	mode = nextMode;
+	participantForm.hidden = mode !== 'participants';
+	taskForm.hidden = mode !== 'tasks';
+	resultEmptyCopy.textContent =
+		mode === 'participants'
+			? 'Fyll i minst en deltagare med giltiga O-, M- och P-värden så visas resultatet här.'
+			: 'Fyll i minst en namngiven deluppgift med giltiga O-, M- och P-värden så visas resultatet här.';
+	clearActionStatus();
+	render();
+}
+
+function currentShareUrl(): string | null {
+	if (mode === 'participants') {
+		const validation = validatePertForm(
+			collectParticipantInputs(getRows(participantRowsList)),
+			collectSettingsInput(),
+		);
+		return validation.valid
+			? buildPertShareUrl(
+					window.location.origin + window.location.pathname,
+					validation.participants,
+					validation.settings,
+				)
+			: null;
+	}
+
+	const validation = validateTaskPertForm(
+		collectTaskInputs(getRows(taskRowsList, true)),
+		String(DEFAULT_HOURS_PER_DAY),
+	);
+	return validation.valid
+		? buildTaskPertShareUrl(
+				window.location.origin + window.location.pathname,
+				validation.tasks,
+				validation.result.hoursPerDay,
+			)
+		: null;
 }
 
 function initFromUrl(): void {
@@ -275,10 +472,22 @@ function initFromUrl(): void {
 	meetingInput.value = parsed.meetingHoursPerPerson;
 
 	if (parsed.rows.length > 0) {
-		for (const row of parsed.rows) addRow(row);
+		for (const row of parsed.rows) addParticipantRow(row);
 	} else {
-		addRow();
+		addParticipantRow();
 	}
+
+	if (parsed.tasks.length > 0) {
+		for (const task of parsed.tasks) addTaskRow(task);
+	} else {
+		addTaskRow();
+	}
+
+	const selectedMode = modeInputs.find((input) => input.value === parsed.mode);
+	if (selectedMode) selectedMode.checked = true;
+	mode = parsed.mode;
+	participantForm.hidden = mode !== 'participants';
+	taskForm.hidden = mode !== 'tasks';
 }
 
 function downloadBlob(blob: Blob): void {
@@ -325,8 +534,20 @@ function escapeHtml(value: string): string {
 		.replace(/"/g, '&quot;');
 }
 
-addRowButton.addEventListener('click', () => {
-	addRow(undefined, { focus: true });
+for (const modeInput of modeInputs) {
+	modeInput.addEventListener('change', () => {
+		if (modeInput.checked) setMode(modeInput.value as PertMode);
+	});
+}
+
+addParticipantButton.addEventListener('click', () => {
+	addParticipantRow(undefined, { focus: true });
+	clearActionStatus();
+	render();
+});
+
+addTaskButton.addEventListener('click', () => {
+	addTaskRow();
 	clearActionStatus();
 	render();
 });
@@ -337,15 +558,8 @@ meetingInput.addEventListener('input', () => {
 });
 
 shareButton.addEventListener('click', async () => {
-	const rows = getRows();
-	const validation = validatePertForm(collectRowInputs(rows), collectSettingsInput());
-	if (!validation.valid) return;
-
-	const url = buildPertShareUrl(
-		window.location.origin + window.location.pathname,
-		validation.participants,
-		validation.settings,
-	);
+	const url = currentShareUrl();
+	if (!url) return;
 
 	try {
 		if (!navigator.clipboard || !window.isSecureContext) {
@@ -370,8 +584,7 @@ pngButton.addEventListener('click', async () => {
 				pngStatus.textContent = 'Bilden har kopierats till urklipp.';
 				return;
 			} catch {
-				// Clipboard image writes can be blocked by permissions/browser
-				// support — fall back to a direct download of the same PNG.
+				// Clipboard image writes can be blocked; download the same PNG instead.
 			}
 		}
 
@@ -384,15 +597,8 @@ pngButton.addEventListener('click', async () => {
 });
 
 combinedButton.addEventListener('click', async () => {
-	const rows = getRows();
-	const validation = validatePertForm(collectRowInputs(rows), collectSettingsInput());
-	if (!validation.valid) return;
-
-	const url = buildPertShareUrl(
-		window.location.origin + window.location.pathname,
-		validation.participants,
-		validation.settings,
-	);
+	const url = currentShareUrl();
+	if (!url) return;
 
 	combinedStatus.textContent = 'Skapar bild …';
 
@@ -439,4 +645,4 @@ combinedButton.addEventListener('click', async () => {
 });
 
 initFromUrl();
-render();
+setMode(mode);

@@ -12,6 +12,16 @@ export interface ParticipantRowInput {
 	p: string;
 }
 
+/** A named subtask with a parsed three-point estimate. */
+export interface TaskEstimate extends ParticipantEstimate {
+	title: string;
+}
+
+/** Raw, unvalidated input for a task row. */
+export interface TaskRowInput extends ParticipantRowInput {
+	title: string;
+}
+
 /** Global settings that apply to the whole estimation. */
 export interface PertSettings {
 	/** Meeting/estimation hours spent per person. */
@@ -63,6 +73,33 @@ export interface PertResult {
 	workdays: number;
 }
 
+export interface TaskEstimateResult extends TaskEstimate {
+	expectedHours: number;
+	variance: number;
+	standardDeviation: number;
+}
+
+export interface ConfidenceInterval {
+	standardDeviations: 1 | 2 | 3;
+	confidence: string;
+	lowerHours: number;
+	upperHours: number;
+}
+
+/** Aggregated PERT result for independent, named subtasks. */
+export interface TaskPertResult {
+	tasks: TaskEstimateResult[];
+	totalO: number;
+	totalM: number;
+	totalP: number;
+	expectedHours: number;
+	variance: number;
+	standardDeviation: number;
+	hoursPerDay: number;
+	workdays: number;
+	confidenceIntervals: ConfidenceInterval[];
+}
+
 export type FieldErrorCode =
 	| 'required'
 	| 'not-a-number'
@@ -96,6 +133,22 @@ export interface PertValidationFailure {
 }
 
 export type PertValidationResult = PertValidationSuccess | PertValidationFailure;
+
+export interface TaskPertValidationSuccess {
+	valid: true;
+	errors: [];
+	tasks: TaskEstimate[];
+	result: TaskPertResult;
+}
+
+export interface TaskPertValidationFailure {
+	valid: false;
+	errors: FieldError[];
+	tasks: null;
+	result: null;
+}
+
+export type TaskPertValidationResult = TaskPertValidationSuccess | TaskPertValidationFailure;
 
 export const DEFAULT_MEETING_HOURS_PER_PERSON = 1;
 export const DEFAULT_HOURS_PER_DAY = 8;

@@ -3,11 +3,14 @@ import {
 	DEFAULT_MEETING_HOURS_PER_PERSON,
 	type ParticipantEstimate,
 	type PertSettings,
+	type TaskEstimate,
 } from './types';
 
 const ESTIMATE_PARAM = 'e';
 const MEETING_PARAM = 'm';
 const HOURS_PER_DAY_PARAM = 'h';
+const MODE_PARAM = 'mode';
+const TASK_PARAM = 't';
 
 /** Formats a number for URL usage: plain dot-decimal, no trailing zeros. */
 function numberToUrlToken(value: number): string {
@@ -56,9 +59,33 @@ export function buildPertShareUrl(
 	return query ? `${base}?${query}` : base;
 }
 
+/** Builds a query string for task mode without changing the legacy participant format. */
+export function buildTaskPertQueryString(tasks: TaskEstimate[], hoursPerDay: number): string {
+	const params = new URLSearchParams();
+	params.set(MODE_PARAM, 'tasks');
+	for (const task of tasks) {
+		params.append(TASK_PARAM, JSON.stringify([task.title, task.o, task.m, task.p]));
+	}
+	if (hoursPerDay !== DEFAULT_HOURS_PER_DAY) {
+		params.set(HOURS_PER_DAY_PARAM, numberToUrlToken(hoursPerDay));
+	}
+	return params.toString();
+}
+
+export function buildTaskPertShareUrl(
+	baseUrl: string,
+	tasks: TaskEstimate[],
+	hoursPerDay: number,
+): string {
+	const base = baseUrl.split('?')[0];
+	return `${base}?${buildTaskPertQueryString(tasks, hoursPerDay)}`;
+}
+
 export interface ParsedPertUrl {
+	mode: 'participants' | 'tasks';
 	/** Raw string rows suitable for prefilling the form, "" when absent. */
 	rows: { o: string; m: string; p: string }[];
+	tasks: { title: string; o: string; m: string; p: string }[];
 	meetingHoursPerPerson: string;
 	hoursPerDay: string;
 }
@@ -80,9 +107,36 @@ export function parsePertSearchParams(
 		.filter((parts) => parts.length === 3)
 		.map(([o, m, p]) => ({ o: o.trim(), m: m.trim(), p: p.trim() }));
 
+	const tasks = params
+		.getAll(TASK_PARAM)
+		.map((token) => {
+			try {
+				const parsed: unknown = JSON.parse(token);
+				if (
+					!Array.isArray(parsed) ||
+					parsed.length !== 4 ||
+					typeof parsed[0] !== 'string' ||
+					!parsed.slice(1).every((value) => typeof value === 'number')
+				) {
+					return null;
+				}
+				return {
+					title: parsed[0],
+					o: String(parsed[1]),
+					m: String(parsed[2]),
+					p: String(parsed[3]),
+				};
+			} catch {
+				return null;
+			}
+		})
+		.filter((task): task is { title: string; o: string; m: string; p: string } => task !== null);
+
 	const meetingHoursPerPerson =
 		params.get(MEETING_PARAM) ?? String(DEFAULT_MEETING_HOURS_PER_PERSON);
 	const hoursPerDay = params.get(HOURS_PER_DAY_PARAM) ?? String(DEFAULT_HOURS_PER_DAY);
 
-	return { rows, meetingHoursPerPerson, hoursPerDay };
+	const mode = params.get(MODE_PARAM) === 'tasks' ? 'tasks' : 'participants';
+
+	return { mode, rows, tasks, meetingHoursPerPerson, hoursPerDay };
 }

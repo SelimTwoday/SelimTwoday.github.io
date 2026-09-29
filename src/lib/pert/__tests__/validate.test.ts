@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validatePertForm } from '../validate';
+import { validatePertForm, validateTaskPertForm } from '../validate';
 
 const settings = (overrides: Partial<{ meetingHoursPerPerson: string; hoursPerDay: string }> = {}) => ({
 	meetingHoursPerPerson: '1',
@@ -15,6 +15,31 @@ describe('validatePertForm', () => {
 		if (!result.valid) throw new Error('expected valid');
 		expect(result.result.pertHours).toBeCloseTo((6 + 4 * 14 + 34) / 6, 10);
 		expect(result.result.peopleCount).toBe(1);
+	});
+
+	describe('validateTaskPertForm', () => {
+		it('requires a title and valid OMP values for every task', () => {
+			const result = validateTaskPertForm([{ title: '', o: '3', m: '2', p: '1' }], '8');
+
+			expect(result.valid).toBe(false);
+			if (result.valid) throw new Error('expected invalid');
+			expect(result.errors.map((error) => error.field)).toEqual([
+				'task-0-title',
+				'row-0-order',
+			]);
+		});
+
+		it('trims titles and computes a valid task result', () => {
+			const result = validateTaskPertForm(
+				[{ title: '  API-kontrakt  ', o: '8', m: '10', p: '16' }],
+				'8',
+			);
+
+			expect(result.valid).toBe(true);
+			if (!result.valid) throw new Error('expected valid');
+			expect(result.tasks[0].title).toBe('API-kontrakt');
+			expect(result.result.expectedHours).toBeCloseTo(10.666666, 5);
+		});
 	});
 
 	it('accepts Swedish decimal commas', () => {

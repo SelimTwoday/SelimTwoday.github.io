@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { calculatePert } from '../calculate';
-import { buildPertQueryString, buildPertShareUrl, parsePertSearchParams } from '../url';
+import {
+	buildPertQueryString,
+	buildPertShareUrl,
+	buildTaskPertQueryString,
+	parsePertSearchParams,
+} from '../url';
 import { validatePertForm } from '../validate';
 
 describe('buildPertQueryString', () => {
@@ -95,5 +100,20 @@ describe('parsePertSearchParams + round trip', () => {
 		params.append('e', '1,2,3');
 		const parsed = parsePertSearchParams(params);
 		expect(parsed.rows).toEqual([{ o: '1', m: '2', p: '3' }]);
+	});
+
+	it('round-trips titled tasks without affecting the legacy URL format', () => {
+		const tasks = [
+			{ title: 'API-kontrakt, fas 1', o: 8, m: 10, p: 16 },
+			{ title: 'Test & produktion', o: 5, m: 8, p: 12 },
+		];
+
+		const parsed = parsePertSearchParams(buildTaskPertQueryString(tasks, 8));
+
+		expect(parsed.mode).toBe('tasks');
+		expect(parsed.tasks).toEqual([
+			{ title: 'API-kontrakt, fas 1', o: '8', m: '10', p: '16' },
+			{ title: 'Test & produktion', o: '5', m: '8', p: '12' },
+		]);
 	});
 });

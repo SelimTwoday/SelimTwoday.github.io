@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
 	average,
 	calculatePert,
+	calculateTaskPert,
 	HIGH_UNCERTAINTY_THRESHOLD,
 	pertFormula,
+	pertVariance,
 	standardDeviation,
 	TEAM_DISAGREEMENT_THRESHOLD,
 } from '../calculate';
@@ -32,6 +34,35 @@ describe('standardDeviation', () => {
 	it('computes the population standard deviation', () => {
 		// mean = 5, squared deviations = [4, 0, 4], variance = 8/3
 		expect(standardDeviation([3, 5, 7])).toBeCloseTo(Math.sqrt(8 / 3), 10);
+	});
+});
+
+describe('calculateTaskPert', () => {
+	it('combines the supplied subtasks by summing expected values and variances', () => {
+		const tasks = [
+			{ title: 'Teknisk undersökning och API-kontrakt', o: 8, m: 10, p: 16 },
+			{ title: 'Fältmappning och triggeranalys', o: 4, m: 6, p: 10 },
+			{ title: 'Grundsynk och initial export', o: 10, m: 14, p: 20 },
+			{ title: 'Nytt integrationsprogram', o: 18, m: 24, p: 32 },
+			{ title: 'Löpande förändringsflöden', o: 15, m: 20, p: 28 },
+			{ title: 'Direktlänkar', o: 6, m: 8, p: 12 },
+			{ title: 'Testning', o: 8, m: 10, p: 16 },
+			{ title: 'Acceptanstestning', o: 3, m: 4, p: 5 },
+			{ title: 'Prodsättning', o: 5, m: 8, p: 12 },
+			{ title: 'Ny controller', o: 5, m: 8, p: 12 },
+			{ title: 'Uppdatera ÖK-dokument', o: 4, m: 8, p: 20 },
+		];
+
+		const result = calculateTaskPert(tasks, 8);
+
+		expect(result.expectedHours).toBeCloseTo(124.833333, 5);
+		expect(result.standardDeviation).toBeCloseTo(5.330729, 5);
+		expect(result.confidenceIntervals[1]).toMatchObject({
+			standardDeviations: 2,
+			lowerHours: expect.closeTo(114.171876, 5),
+			upperHours: expect.closeTo(135.49479, 5),
+		});
+		expect(result.tasks[0].variance).toBe(pertVariance(8, 16));
 	});
 });
 

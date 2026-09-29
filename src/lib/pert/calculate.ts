@@ -1,4 +1,10 @@
-import type { ParticipantEstimate, PertResult, PertSettings } from './types';
+import type {
+	ParticipantEstimate,
+	PertResult,
+	PertSettings,
+	TaskEstimate,
+	TaskPertResult,
+} from './types';
 
 /** Arithmetic mean of a list of numbers. Assumes a non-empty array. */
 export function average(values: number[]): number {
@@ -25,6 +31,11 @@ export const HIGH_UNCERTAINTY_THRESHOLD = 0.3;
 
 /** Above this ratio of mStdDev / averageM, participants are flagged as not aligned on scope. */
 export const TEAM_DISAGREEMENT_THRESHOLD = 0.4;
+
+/** PERT variance for one estimate, based on sigma = (P - O) / 6. */
+export function pertVariance(optimistic: number, pessimistic: number): number {
+	return ((pessimistic - optimistic) / 6) ** 2;
+}
 
 /**
  * Computes the full PERT result for a group of participants.
@@ -86,5 +97,57 @@ export function calculatePert(
 		finalHours,
 		hoursPerDay: settings.hoursPerDay,
 		workdays,
+	};
+}
+
+/**
+ * Computes a project estimate from independent subtasks.
+ * Expected durations are summed, while variances are summed before taking
+ * the square root. Adding standard deviations directly would overstate risk.
+ */
+export function calculateTaskPert(tasks: TaskEstimate[], hoursPerDay: number): TaskPertResult {
+	const taskResults = tasks.map((task) => {
+		const variance = pertVariance(task.o, task.p);
+		return {
+			...task,
+			expectedHours: pertFormula(task.o, task.m, task.p),
+			variance,
+			standardDeviation: Math.sqrt(variance),
+		};
+	});
+	const expectedHours = taskResults.reduce((sum, task) => sum + task.expectedHours, 0);
+	const variance = taskResults.reduce((sum, task) => sum + task.variance, 0);
+	const standardDeviation = Math.sqrt(variance);
+
+	return {
+		tasks: taskResults,
+		totalO: tasks.reduce((sum, task) => sum + task.o, 0),
+		totalM: tasks.reduce((sum, task) => sum + task.m, 0),
+		totalP: tasks.reduce((sum, task) => sum + task.p, 0),
+		expectedHours,
+		variance,
+		standardDeviation,
+		hoursPerDay,
+		workdays: expectedHours / hoursPerDay,
+		confidenceIntervals: [
+			{
+				standardDeviations: 1,
+				confidence: '68 %',
+				lowerHours: expectedHours - standardDeviation,
+				upperHours: expectedHours + standardDeviation,
+			},
+			{
+				standardDeviations: 2,
+				confidence: '95 %',
+				lowerHours: expectedHours - 2 * standardDeviation,
+				upperHours: expectedHours + 2 * standardDeviation,
+			},
+			{
+				standardDeviations: 3,
+				confidence: '99,7 %',
+				lowerHours: expectedHours - 3 * standardDeviation,
+				upperHours: expectedHours + 3 * standardDeviation,
+			},
+		],
 	};
 }

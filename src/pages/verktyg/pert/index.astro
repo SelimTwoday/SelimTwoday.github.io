@@ -11,15 +11,31 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		<header class="page__header">
 			<h1>PERT-kalkylator</h1>
 			<p class="page__lead">
-				Lägg till en rad per deltagare med en optimistisk (O), mest sannolik (M) och
-				pessimistisk (P) uppskattning i timmar. Resultatet räknas ut automatiskt när alla
-				fält är korrekt ifyllda.
+				Estimera tillsammans som tidigare, eller byt till PERT Pro för att räkna ihop 
+				namngivna deluppgifter och få ett statistiskt konfidensintervall.
 			</p>
 		</header>
 
+		<fieldset class="mode-switch" aria-label="Typ av PERT-estimat">
+			<label class="mode-switch__option">
+				<input type="radio" name="pert-mode" value="participants" checked />
+				<span>
+					<strong>Gruppestimat</strong>
+					<small>Sammanväg deltagarnas bedömningar</small>
+				</span>
+			</label>
+			<label class="mode-switch__option">
+				<input type="radio" name="pert-mode" value="tasks" />
+				<span>
+					<strong>PERT Pro</strong>
+					<small>Summera deluppgifter och osäkerhet</small>
+				</span>
+			</label>
+		</fieldset>
+
 		<div class="pert-workspace">
 			<div class="pert-workspace__form">
-				<form id="pert-form" class="pert-form" novalidate>
+				<form id="participant-form" class="pert-form" novalidate>
 					<div class="participants card">
 						<div class="participants__header">
 							<div class="participants__heading">
@@ -89,8 +105,26 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 						</div>
 					</div>
 
-					<div id="pert-errors" class="status-message" data-tone="error" role="alert" hidden></div>
 				</form>
+
+				<form id="task-form" class="pert-form" novalidate hidden>
+					<div class="participants">
+						<div class="participants__header">
+							<div>
+								<h2>Deluppgifter</h2>
+								<p class="participants__description">
+									Varje rad beräknas separat. Variansen summeras innan standardavvikelsen tas fram.
+								</p>
+							</div>
+							<button type="button" id="add-task-button" class="button button-secondary">
+								+ Lägg till deluppgift
+							</button>
+						</div>
+						<ul id="task-rows" class="participant-rows"></ul>
+					</div>
+				</form>
+
+				<div id="pert-errors" class="status-message" data-tone="error" role="alert" hidden></div>
 
 				<template id="row-template">
 					<li class="participant-row">
@@ -137,53 +171,145 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 					</li>
 				</template>
 
+				<template id="task-row-template">
+					<li class="participant-row task-row card">
+						<div class="participant-row__header">
+							<span class="participant-row__title">Deluppgift</span>
+							<button
+								type="button"
+								class="participant-row__remove button button-secondary"
+								aria-label="Ta bort deluppgift"
+							>
+								✕ Ta bort
+							</button>
+						</div>
+						<label class="field task-row__title-field">
+							<span>Titel</span>
+							<input
+								type="text"
+								class="field-title"
+								autocomplete="off"
+								placeholder="T.ex. Teknisk undersökning och API-kontrakt"
+							/>
+						</label>
+						<div class="participant-row__fields">
+							<label class="field">
+								<span>Optimistisk</span>
+								<span class="input-control">
+									<span class="input-control__prefix" aria-hidden="true">O</span>
+									<input type="text" class="field-o input-control__input" inputmode="decimal" autocomplete="off" />
+								</span>
+							</label>
+							<label class="field">
+								<span>Mest trolig</span>
+								<span class="input-control">
+									<span class="input-control__prefix" aria-hidden="true">M</span>
+									<input type="text" class="field-m input-control__input" inputmode="decimal" autocomplete="off" />
+								</span>
+							</label>
+							<label class="field">
+								<span>Pessimistisk</span>
+								<span class="input-control">
+									<span class="input-control__prefix" aria-hidden="true">P</span>
+									<input type="text" class="field-p input-control__input" inputmode="decimal" autocomplete="off" />
+								</span>
+							</label>
+						</div>
+						<p class="participant-row__error field__error" aria-live="polite"></p>
+					</li>
+				</template>
+
 			</div>
 
 			<div class="pert-workspace__result">
 				<div id="pert-result-empty" class="card result-empty">
-					<p>Fyll i minst en deltagare med giltiga O-, M- och P-värden så visas resultatet här.</p>
+					<p id="result-empty-copy">Fyll i minst en deltagare med giltiga O-, M- och P-värden så visas resultatet här.</p>
 				</div>
 
 				<section id="pert-result-panel" class="card result-panel" hidden aria-labelledby="result-heading">
 					<h2 id="result-heading">Resultat</h2>
-					<p class="result-panel__subtitle">Baserat på medelvärdet av alla inmatade O-, M- och P-värden.</p>
+					<div id="participant-result">
+						<p class="result-panel__subtitle">Baserat på medelvärdet av alla inmatade O-, M- och P-värden.</p>
 
-					<div class="result-averages">
-						<div class="result-box">
-							<div class="result-box__label">Optimistisk</div>
-							<div class="result-box__value" id="avg-o">–</div>
+						<div class="result-averages">
+							<div class="result-box">
+								<div class="result-box__label">Optimistisk</div>
+								<div class="result-box__value" id="avg-o">–</div>
+							</div>
+							<div class="result-box">
+								<div class="result-box__label">Mest sannolik</div>
+								<div class="result-box__value" id="avg-m">–</div>
+							</div>
+							<div class="result-box">
+								<div class="result-box__label">Pessimistisk</div>
+								<div class="result-box__value" id="avg-p">–</div>
+							</div>
 						</div>
-						<div class="result-box">
-							<div class="result-box__label">Mest sannolik</div>
-							<div class="result-box__value" id="avg-m">–</div>
+
+						<p class="result-formula" id="pert-formula">PERT = (O + 4×M + P) / 6</p>
+
+						<div class="result-final">
+							<div class="result-final__item">
+								<div class="result-final__label">PERT (utan möten)</div>
+								<div class="result-final__value" id="pert-hours">–</div>
+								<div class="result-final__sub" id="pert-days"></div>
+							</div>
+							<div class="result-final__item">
+								<div class="result-final__label">Tid lagd på estimering</div>
+								<div class="result-final__value" id="meeting-hours">–</div>
+								<div class="result-final__sub" id="meeting-note"></div>
+							</div>
+							<div class="result-final__item result-final__item--highlight">
+								<div class="result-final__label">Slutgiltigt resultat</div>
+								<div class="result-final__value" id="final-hours">–</div>
+								<div class="result-final__sub" id="final-days"></div>
+								<div class="result-final__sub" id="pert-confidence"></div>
+							</div>
 						</div>
-						<div class="result-box">
-							<div class="result-box__label">Pessimistisk</div>
-							<div class="result-box__value" id="avg-p">–</div>
-						</div>
+
+						<p class="result-note" id="people-note"></p>
 					</div>
 
-					<p class="result-formula" id="pert-formula">PERT = (O + 4×M + P) / 6</p>
+					<div id="task-result" hidden>
+						<p class="result-panel__subtitle">
+							Deluppgifternas förväntade tider summeras. Oberoende osäkerheter kombineras genom att summera varianserna.
+						</p>
 
-					<div class="result-final">
-						<div class="result-final__item">
-							<div class="result-final__label">PERT (exkl estimering)</div>
-							<div class="result-final__value" id="pert-hours">–</div>
-							<div class="result-final__sub" id="pert-days"></div>
+						<div class="result-averages">
+							<div class="result-box">
+								<div class="result-box__label">Optimistisk summa</div>
+								<div class="result-box__value" id="task-total-o">–</div>
+							</div>
+							<div class="result-box">
+								<div class="result-box__label">Mest sannolik summa</div>
+								<div class="result-box__value" id="task-total-m">–</div>
+							</div>
+							<div class="result-box">
+								<div class="result-box__label">Pessimistisk summa</div>
+								<div class="result-box__value" id="task-total-p">–</div>
+							</div>
 						</div>
-						<div class="result-final__item">
-							<div class="result-final__label">Tid lagd på estimering</div>
-							<div class="result-final__value" id="meeting-hours">–</div>
-							<div class="result-final__sub" id="meeting-note"></div>
+
+						<div class="result-final">
+							<div class="result-final__item result-final__item--highlight">
+								<div class="result-final__label">Förväntad total tid</div>
+								<div class="result-final__value" id="task-expected-hours">–</div>
+								<div class="result-final__sub" id="task-expected-days"></div>
+							</div>
+							<div class="result-final__item result-final__item--wide">
+								<div class="result-final__label">Kombinerad standardavvikelse</div>
+								<div class="result-final__value" id="task-standard-deviation">–</div>
+								<div class="result-final__sub">σ = √Σ((P − O) / 6)²</div>
+							</div>
 						</div>
-						<div class="result-final__item result-final__item--highlight">
-							<div class="result-final__label">Slutgiltigt resultat</div>
-							<div class="result-final__value" id="final-hours">–</div>
-							<div class="result-final__sub" id="final-days"></div>
-							<div class="result-final__sub" id="pert-confidence"></div>
-						</div>
+
+						<h3 class="result-section-heading">Konfidensintervall</h3>
+						<div class="confidence-list" id="confidence-list"></div>
+
+						<h3 class="result-section-heading">Deluppgifter</h3>
+						<div class="task-breakdown" id="task-breakdown"></div>
+						<p class="result-note" id="task-note"></p>
 					</div>
-					<p class="result-note" id="people-note"></p>
 				</section>
 				
 				<div class="pert-actions">
@@ -226,6 +352,56 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		font-size: 1.02rem;
 		margin: 0;
 		max-width: 40rem;
+	}
+
+	.mode-switch {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.5rem;
+		width: min(100%, 38rem);
+		padding: 0.35rem;
+		margin-bottom: 2rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-bg-elevated);
+	}
+
+	.mode-switch__option {
+		position: relative;
+		cursor: pointer;
+	}
+
+	.mode-switch__option input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.mode-switch__option > span {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+		height: 100%;
+		padding: 0.75rem 1rem;
+		border: 1px solid transparent;
+		border-radius: calc(var(--radius-lg) - 4px);
+		color: var(--color-text-muted);
+		transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+	}
+
+	.mode-switch__option small {
+		font-size: 0.78rem;
+		line-height: 1.35;
+	}
+
+	.mode-switch__option input:checked + span {
+		color: var(--color-text);
+		border-color: var(--color-primary);
+		background: var(--color-primary-muted);
+	}
+
+	.mode-switch__option input:focus-visible + span {
+		box-shadow: var(--focus-ring);
 	}
 
 	.pert-workspace {
@@ -453,6 +629,14 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		white-space: nowrap;
 	}
 
+	.participants__description {
+		margin: 0.3rem 0 0;
+		max-width: 34rem;
+		color: var(--color-text-muted);
+		font-size: 0.88rem;
+		line-height: 1.45;
+	}
+
 	.participant-rows {
 		list-style: none;
 		margin: 0;
@@ -509,6 +693,39 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 	.participant-row__error {
 		grid-column: 1 / -1;
+	}
+
+	.task-row__title-field {
+		margin-bottom: 1rem;
+	}
+
+	.task-row {
+		display: block;
+		padding: 1rem;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.task-row .participant-row__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-bottom: 0.9rem;
+	}
+
+	.task-row .participant-row__title {
+		font-weight: 800;
+	}
+
+	.task-row .participant-row__remove {
+		width: auto;
+		height: auto;
+	}
+
+	.task-row .participant-row__fields {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(5rem, 1fr));
+		gap: 0.75rem;
 	}
 
 	.pert-actions {
@@ -612,6 +829,10 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		grid-column: 1 / -1;
 	}
 
+	.result-final__item--wide {
+		grid-column: 1 / -1;
+	}
+
 	.result-final__item {
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
@@ -677,13 +898,89 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		color: color-mix(in srgb, #f5a524 65%, var(--color-text));
 	}
 
+	.result-section-heading {
+		margin: 1.5rem 0 0.75rem;
+		font-size: 1rem;
+	}
+
+	.confidence-list {
+		display: grid;
+		gap: 0.65rem;
+	}
+
+	.confidence-list :global(.confidence-row) {
+		display: grid;
+		grid-template-columns: minmax(5rem, 0.7fr) minmax(8rem, 1fr) minmax(9rem, 1.1fr);
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem 0.9rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg-elevated-2);
+	}
+
+	.confidence-list :global(.confidence-row__level) {
+		font-weight: 800;
+	}
+
+	.confidence-list :global(.confidence-row__calculation) {
+		color: var(--color-text-muted);
+		font-family: var(--font-mono);
+		font-size: 0.82rem;
+	}
+
+	.confidence-list :global(.confidence-row__interval) {
+		text-align: right;
+		font-weight: 800;
+	}
+
+	.task-breakdown {
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.task-breakdown :global(.task-breakdown__row) {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 1rem;
+		padding-block: 0.55rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.task-breakdown :global(.task-breakdown__title) {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.task-breakdown :global(.task-breakdown__value) {
+		font-weight: 800;
+		white-space: nowrap;
+	}
+
 	@media (max-width: 640px) {
+		.mode-switch {
+			grid-template-columns: 1fr;
+		}
+
 		.result-averages {
 			grid-template-columns: 1fr;
 		}
 
 		.result-final {
 			grid-template-columns: 1fr;
+		}
+
+		.task-row .participant-row__fields {
+			grid-template-columns: 1fr;
+		}
+
+		.confidence-list :global(.confidence-row) {
+			grid-template-columns: 1fr;
+			gap: 0.2rem;
+		}
+
+		.confidence-list :global(.confidence-row__interval) {
+			text-align: left;
 		}
 	}
 </style>

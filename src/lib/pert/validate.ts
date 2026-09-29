@@ -1,4 +1,4 @@
-import { calculatePert } from './calculate';
+import { calculatePert, calculateTaskPert } from './calculate';
 import { parseSwedishNumber } from './format';
 import type {
 	FieldError,
@@ -7,6 +7,9 @@ import type {
 	PertSettings,
 	PertSettingsInput,
 	PertValidationResult,
+	TaskEstimate,
+	TaskPertValidationResult,
+	TaskRowInput,
 } from './types';
 
 function parseField(
@@ -113,4 +116,51 @@ export function validatePertForm(
 	const result = calculatePert(participants, settings);
 
 	return { valid: true, errors: [], participants, settings, result };
+}
+
+/** Validates named subtask rows and computes their combined uncertainty. */
+export function validateTaskPertForm(
+	rows: TaskRowInput[],
+	hoursPerDayInput: string,
+): TaskPertValidationResult {
+	const errors: FieldError[] = [];
+
+	if (rows.length === 0) {
+		errors.push({
+			field: 'tasks',
+			code: 'no-participants',
+			message: 'Minst en deluppgift krävs.',
+		});
+		return { valid: false, errors, tasks: null, result: null };
+	}
+
+	const tasks: TaskEstimate[] = [];
+	for (let index = 0; index < rows.length; index += 1) {
+		const title = rows[index].title.trim();
+		if (!title) {
+			errors.push({
+				field: `task-${index}-title`,
+				code: 'required',
+				message: 'Ange en titel för deluppgiften.',
+			});
+		}
+
+		const parsed = validateParticipantRow(rows[index], index, errors);
+		if (title && parsed) tasks.push({ title, ...parsed });
+	}
+
+	const hoursPerDay = parseField('settings-hoursPerDay', hoursPerDayInput, errors, {
+		allowZero: false,
+	});
+
+	if (errors.length > 0 || hoursPerDay === null || tasks.length !== rows.length) {
+		return { valid: false, errors, tasks: null, result: null };
+	}
+
+	return {
+		valid: true,
+		errors: [],
+		tasks,
+		result: calculateTaskPert(tasks, hoursPerDay),
+	};
 }
