@@ -116,11 +116,11 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 									Varje rad beräknas separat. Variansen summeras innan standardavvikelsen tas fram.
 								</p>
 							</div>
-							<button type="button" id="add-task-button" class="button button-secondary">
-								+ Lägg till deluppgift
-							</button>
 						</div>
 						<ul id="task-rows" class="participant-rows"></ul>
+						<button type="button" id="add-task-button" class="button button-secondary task-rows__add">
+							+ Lägg till deluppgift
+						</button>
 					</div>
 				</form>
 
@@ -173,25 +173,24 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 				<template id="task-row-template">
 					<li class="participant-row task-row card">
-						<div class="participant-row__header">
-							<span class="participant-row__title">Deluppgift</span>
-							<button
-								type="button"
-								class="participant-row__remove button button-secondary"
-								aria-label="Ta bort deluppgift"
-							>
-								✕ Ta bort
-							</button>
-						</div>
 						<label class="field task-row__title-field">
-							<span>Titel</span>
+							<span class="visually-hidden">Titel</span>
 							<input
 								type="text"
 								class="field-title"
 								autocomplete="off"
-								placeholder="T.ex. Teknisk undersökning och API-kontrakt"
 							/>
 						</label>
+						<div class="task-row__actions">
+							<button
+								type="button"
+								class="participant-row__remove"
+								aria-label="Ta bort deluppgift"
+								title="Ta bort deluppgift"
+							>
+								<span aria-hidden="true">✕</span>
+							</button>
+						</div>
 						<div class="participant-row__fields">
 							<label class="field">
 								<span>Optimistisk</span>
@@ -218,6 +217,23 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 						<p class="participant-row__error field__error" aria-live="polite"></p>
 					</li>
 				</template>
+
+				<dialog id="remove-task-dialog" class="confirmation-dialog" aria-labelledby="remove-task-title">
+					<div class="confirmation-dialog__content">
+						<h2 id="remove-task-title">Ta bort deluppgift?</h2>
+						<p id="remove-task-copy">
+							Är du säker? Inmatade O-, M- och P-värden försvinner.
+						</p>
+						<div class="confirmation-dialog__actions">
+							<button type="button" id="cancel-remove-task" class="button button-secondary">
+								Avbryt
+							</button>
+							<button type="button" id="confirm-remove-task" class="button button-danger">
+								Ta bort
+							</button>
+						</div>
+					</div>
+				</dialog>
 
 			</div>
 
@@ -462,7 +478,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		color: var(--color-text);
 		background: var(--color-bg);
 		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
+		border-radius: 8px;
 		padding: 0.45rem 0.6rem;
 		min-height: 2.2rem;
 	}
@@ -475,7 +491,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		display: flex;
 		align-items: stretch;
 		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-md);
+		border-radius: 8px;
 		background: var(--color-bg);
 		transition: border-color 150ms ease;
 	}
@@ -499,8 +515,8 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		color: var(--color-text-muted);
 		background: var(--color-bg-elevated-2);
 		border-right: 1px solid var(--color-border-strong);
-		border-top-left-radius: var(--radius-md);
-		border-bottom-left-radius: var(--radius-md);
+		border-top-left-radius: 8px;
+		border-bottom-left-radius: 8px;
 	}
 
 	.input-control__input {
@@ -696,36 +712,140 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 	}
 
 	.task-row__title-field {
-		margin-bottom: 1rem;
+		min-width: 0;
+		margin: 0;
 	}
 
 	.task-row {
-		display: block;
-		padding: 1rem;
-		border-top: 1px solid var(--color-border);
-	}
-
-	.task-row .participant-row__header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 2rem;
+		align-items: start;
 		gap: 0.75rem;
-		margin-bottom: 0.9rem;
+		padding: 0.75rem;
+		margin-bottom: 1rem;
+		border-top: 1px solid var(--color-border);
+		transition: border-color 150ms ease, opacity 150ms ease, transform 150ms ease;
 	}
 
-	.task-row .participant-row__title {
-		font-weight: 800;
+	.participant-rows > .task-row:first-child {
+		padding-top: 0.75rem;
+	}
+
+	.participant-rows > .task-row:last-child {
+		padding-bottom: 0.75rem;
+	}
+
+	.task-row__title-field > input {
+		min-height: 2rem;
+		padding: 0.4rem 0.65rem;
+		font-size: 0.8rem;
+		font-weight: 700;
+	}
+
+	.task-row__actions {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.25rem;
 	}
 
 	.task-row .participant-row__remove {
-		width: auto;
-		height: auto;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
+		color: var(--color-text-muted);
+		background: transparent;
+		border: none;
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: background-color 150ms ease, color 150ms ease;
+	}
+
+	.task-row .participant-row__remove:hover:not(:disabled) {
+		color: var(--color-text);
+		background: var(--color-bg-elevated-2);
+	}
+
+	.task-row {
+		cursor: grab;
+		touch-action: manipulation;
+	}
+
+	.task-row--dragging {
+		cursor: grabbing;
+	}
+
+	.task-row input,
+	.task-row button {
+		cursor: auto;
 	}
 
 	.task-row .participant-row__fields {
+		grid-column: 1 / -1;
 		display: grid;
 		grid-template-columns: repeat(3, minmax(5rem, 1fr));
 		gap: 0.75rem;
+	}
+
+	.task-row .participant-row__error {
+		grid-column: 1 / -1;
+	}
+
+	.task-row--dragging {
+		opacity: 0.45;
+		border-color: var(--color-primary);
+		user-select: none;
+	}
+
+	.task-rows__add {
+		width: 100%;
+		margin-top: 0.25rem;
+	}
+
+	.confirmation-dialog {
+		width: min(calc(100% - 2rem), 28rem);
+		padding: 0;
+		color: var(--color-text);
+		background: var(--color-bg-elevated);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-elevated);
+	}
+
+	.confirmation-dialog::backdrop {
+		background: rgb(0 0 0 / 0.65);
+		backdrop-filter: blur(2px);
+	}
+
+	.confirmation-dialog__content {
+		padding: 1.25rem;
+	}
+
+	.confirmation-dialog h2 {
+		margin: 0 0 0.5rem;
+		font-size: 1.2rem;
+	}
+
+	.confirmation-dialog p {
+		margin: 0;
+		color: var(--color-text-muted);
+		line-height: 1.5;
+	}
+
+	.confirmation-dialog__actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.75rem;
+		margin-top: 1.25rem;
+	}
+
+	.button-danger {
+		color: white;
+		background: #b3261e;
+		border-color: #b3261e;
 	}
 
 	.pert-actions {

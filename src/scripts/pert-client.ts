@@ -42,6 +42,10 @@ const participantCountEl = document.getElementById('participant-count') as HTMLE
 const meetingInput = document.getElementById('meeting-hours-input') as HTMLInputElement;
 const meetingErrorEl = document.getElementById('meeting-hours-error') as HTMLParagraphElement;
 const globalErrorsEl = document.getElementById('pert-errors') as HTMLDivElement;
+const removeTaskDialog = document.getElementById('remove-task-dialog') as HTMLDialogElement;
+const removeTaskCopy = document.getElementById('remove-task-copy') as HTMLParagraphElement;
+const cancelRemoveTaskButton = document.getElementById('cancel-remove-task') as HTMLButtonElement;
+const confirmRemoveTaskButton = document.getElementById('confirm-remove-task') as HTMLButtonElement;
 
 const resultPanel = document.getElementById('pert-result-panel') as HTMLElement;
 const resultEmptyEl = document.getElementById('pert-result-empty') as HTMLElement;
@@ -83,6 +87,9 @@ const pngStatus = document.getElementById('png-status') as HTMLParagraphElement;
 const combinedStatus = document.getElementById('combined-status') as HTMLParagraphElement;
 
 let mode: PertMode = 'participants';
+let pendingTaskRemoval: RowRefs | null = null;
+let draggedTaskRow: HTMLLIElement | null = null;
+let draggedTaskStartIndex = -1;
 
 function getRows(list: HTMLUListElement, includeTitle = false): RowRefs[] {
 	return Array.from(list.querySelectorAll<HTMLLIElement>('li.participant-row')).map((li) => ({
@@ -120,6 +127,11 @@ function renumberRows(list: HTMLUListElement, label: string): void {
 	getRows(list, list === taskRowsList).forEach((row, index) => {
 		const title = row.li.querySelector('.participant-row__title');
 		if (title) title.textContent = `${label} ${index + 1}`;
+		if (row.titleInput?.dataset.generatedTitle === 'true') {
+			row.titleInput.value = `${label} ${index + 1}`;
+		}
+		if (row.titleInput) row.titleInput.setAttribute('aria-label', `Titel för deluppgift ${index + 1}`);
+		row.removeButton.setAttribute('aria-label', `Ta bort ${label.toLowerCase()} ${index + 1}`);
 	});
 }
 
@@ -134,10 +146,100 @@ function clearActionStatus(): void {
 	combinedStatus.textContent = '';
 }
 
+function removeRow(row: RowRefs, list: HTMLUListElement, label: string): void {
+	const rows = getRows(list, list === taskRowsList);
+	const removedIndex = rows.findIndex((candidate) => candidate.li === row.li);
+	row.li.remove();
+	if (list === participantRowsList) syncParticipantMeta();
+	renumberRows(list, label);
+	updateRemoveButtons(list);
+	clearActionStatus();
+	render();
+
+	const remainingRows = getRows(list, list === taskRowsList);
+	const focusRow = remainingRows[removedIndex] ?? remainingRows[removedIndex - 1];
+	(focusRow
+		? (focusRow.titleInput ?? focusRow.oInput)
+		: list === participantRowsList
+			? addParticipantButton
+			: addTaskButton
+	).focus();
+}
+
+function hasEstimateData(row: RowRefs): boolean {
+	return [row.oInput, row.mInput, row.pInput].some((input) => input.value.trim() !== '');
+}
+
+function requestTaskRemoval(row: RowRefs): void {
+	if (!hasEstimateData(row)) {
+		removeRow(row, taskRowsList, 'Deluppgift');
+		return;
+	}
+
+	pendingTaskRemoval = row;
+	const taskTitle = row.titleInput?.value.trim() || 'deluppgiften';
+	removeTaskCopy.textContent = `Är du säker på att du vill ta bort ”${taskTitle}”? Inmatade O-, M- och P-värden försvinner.`;
+	removeTaskDialog.showModal();
+	cancelRemoveTaskButton.focus();
+}
+
+function finishTaskReorder(): void {
+	if (!draggedTaskRow) return;
+	const nextIndex = Array.from(taskRowsList.children).indexOf(draggedTaskRow);
+	draggedTaskRow.classList.remove('task-row--dragging');
+	draggedTaskRow = null;
+
+	if (nextIndex !== draggedTaskStartIndex) {
+		renumberRows(taskRowsList, 'Deluppgift');
+		clearActionStatus();
+		render();
+	}
+	draggedTaskStartIndex = -1;
+}
+
+function bindTaskReordering(row: RowRefs): void {
+	let activePointerId: number | null = null;
+
+	row.li.addEventListener('pointerdown', (event) => {
+		if (event.button !== 0 || draggedTaskRow) return;
+		if (event.target instanceof Element && event.target.closest('input, textarea, button, label')) {
+			return;
+		}
+		event.preventDefault();
+		activePointerId = event.pointerId;
+		draggedTaskRow = row.li;
+		draggedTaskStartIndex = Array.from(taskRowsList.children).indexOf(row.li);
+		row.li.classList.add('task-row--dragging');
+	});
+
+	document.addEventListener('pointermove', (event) => {
+		if (event.pointerId !== activePointerId || draggedTaskRow !== row.li) return;
+		event.preventDefault();
+		const target = document
+			.elementFromPoint(event.clientX, event.clientY)
+			?.closest<HTMLLIElement>('li.task-row');
+		if (!target || target === draggedTaskRow || target.parentElement !== taskRowsList) return;
+		const rect = target.getBoundingClientRect();
+		const insertBefore = event.clientY < rect.top + rect.height / 2;
+		taskRowsList.insertBefore(draggedTaskRow, insertBefore ? target : target.nextSibling);
+	}, { passive: false });
+
+	const endPointerDrag = (event: PointerEvent): void => {
+		if (event.pointerId !== activePointerId) return;
+		activePointerId = null;
+		finishTaskReorder();
+	};
+	document.addEventListener('pointerup', endPointerDrag);
+	document.addEventListener('pointercancel', endPointerDrag);
+}
+
 function bindRow(li: HTMLLIElement, list: HTMLUListElement, label: string): HTMLLIElement {
 	const inputs = Array.from(li.querySelectorAll<HTMLInputElement>('input'));
 	for (const input of inputs) {
 		input.addEventListener('input', () => {
+			if (input.classList.contains('field-title')) {
+				delete input.dataset.generatedTitle;
+			}
 			clearActionStatus();
 			render();
 		});
@@ -145,20 +247,12 @@ function bindRow(li: HTMLLIElement, list: HTMLUListElement, label: string): HTML
 
 	const removeButton = li.querySelector('.participant-row__remove') as HTMLButtonElement;
 	removeButton.addEventListener('click', () => {
-		const rows = getRows(list, list === taskRowsList);
-		const removedIndex = rows.findIndex((row) => row.li === li);
-		li.remove();
-		if (list === participantRowsList) syncParticipantMeta();
-		renumberRows(list, label);
-		updateRemoveButtons(list);
-		clearActionStatus();
-		render();
-
-		const remainingRows = getRows(list, list === taskRowsList);
-		const focusRow = remainingRows[removedIndex] ?? remainingRows[removedIndex - 1];
-		(focusRow ? (focusRow.titleInput ?? focusRow.oInput) : list === participantRowsList ? addParticipantButton : addTaskButton).focus();
+		const row = getRowsFromElement(li, list === taskRowsList);
+		if (list === taskRowsList) requestTaskRemoval(row);
+		else removeRow(row, list, label);
 	});
 
+	if (list === taskRowsList) bindTaskReordering(getRowsFromElement(li, true));
 	return li;
 }
 
@@ -180,7 +274,7 @@ function addParticipantRow(
 	if (options?.focus) row.oInput.focus();
 }
 
-function addTaskRow(values?: TaskRowInput): void {
+function addTaskRow(values?: TaskRowInput, options?: { focus?: boolean }): void {
 	const fragment = taskRowTemplate.content.cloneNode(true) as DocumentFragment;
 	const li = fragment.querySelector('li.participant-row') as HTMLLIElement;
 	const row = getRowsFromElement(li, true);
@@ -189,10 +283,17 @@ function addTaskRow(values?: TaskRowInput): void {
 		row.oInput.value = values.o;
 		row.mInput.value = values.m;
 		row.pInput.value = values.p;
+	} else if (row.titleInput) {
+		row.titleInput.value = `Deluppgift ${getRows(taskRowsList, true).length + 1}`;
+		row.titleInput.dataset.generatedTitle = 'true';
 	}
 	taskRowsList.appendChild(bindRow(li, taskRowsList, 'Deluppgift'));
 	renumberRows(taskRowsList, 'Deluppgift');
 	updateRemoveButtons(taskRowsList);
+	if (options?.focus && row.titleInput) {
+		row.titleInput.focus();
+		row.titleInput.select();
+	}
 }
 
 function getRowsFromElement(li: HTMLLIElement, includeTitle = false): RowRefs {
@@ -547,9 +648,28 @@ addParticipantButton.addEventListener('click', () => {
 });
 
 addTaskButton.addEventListener('click', () => {
-	addTaskRow();
+	addTaskRow(undefined, { focus: true });
 	clearActionStatus();
 	render();
+});
+
+cancelRemoveTaskButton.addEventListener('click', () => {
+	const removeButton = pendingTaskRemoval?.removeButton;
+	pendingTaskRemoval = null;
+	removeTaskDialog.close();
+	removeButton?.focus();
+});
+
+confirmRemoveTaskButton.addEventListener('click', () => {
+	const row = pendingTaskRemoval;
+	pendingTaskRemoval = null;
+	removeTaskDialog.close();
+	if (row) removeRow(row, taskRowsList, 'Deluppgift');
+});
+
+removeTaskDialog.addEventListener('cancel', (event) => {
+	event.preventDefault();
+	cancelRemoveTaskButton.click();
 });
 
 meetingInput.addEventListener('input', () => {
