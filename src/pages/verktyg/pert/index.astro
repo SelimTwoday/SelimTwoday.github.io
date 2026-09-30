@@ -25,6 +25,13 @@ const checklist = [
 	title="PERT-kalkylator"
 	description="Räkna ut PERT-estimat för grupper och deluppgifter, eller jämför personers projektuppskattningar med PERT Pro Enterprise."
 >
+	{import.meta.env.PROD && (
+		<meta
+			slot="head"
+			http-equiv="Content-Security-Policy"
+			content="default-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+		/>
+	)}
 	<div class="pert-page">
 		<div class="container pert-shell">
 			<header class="pert-header">
