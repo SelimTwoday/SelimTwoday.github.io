@@ -11,7 +11,7 @@ const { label } = Astro.props;
 	<p class="pert-head__value pert-num" aria-live="polite"><span data-out="headline">–</span><span class="pert-head__unit">h</span></p>
 	<p class="pert-head__sub">
 		≈ <span class="pert-num" data-out="days">–</span> arbetsdagar à
-		<input class="pert-inline pert-num" data-hpd inputmode="decimal" autocomplete="off" maxlength="6" aria-label="Timmar per arbetsdag" />
+		<input class="pert-inline pert-num" data-hpd data-autosize inputmode="decimal" autocomplete="off" maxlength="6" aria-label="Timmar per arbetsdag" />
 		h · ± <span class="pert-num" data-out="sd">–</span> h
 	</p>
 	<p class="pert-prelim" data-out="prelim" hidden></p>

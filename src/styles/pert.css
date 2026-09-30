@@ -789,6 +789,39 @@ details[open] > summary > .pert-chevron {
 	color: var(--pert-muted);
 }
 
+/* The workday length is a quiet setting: it looks like text until hovered or focused. */
+.pert-head__sub .pert-inline {
+	min-width: 1.5ch;
+	height: auto;
+	padding: 0 2px;
+	margin-inline: -2px;
+	font-size: inherit;
+	color: inherit;
+	background: transparent;
+	border-color: transparent;
+	border-radius: 4px;
+	text-align: center;
+	text-decoration: underline dotted var(--pert-faint);
+	text-underline-offset: 3px;
+	cursor: text;
+}
+
+.pert-head__sub .pert-inline:hover {
+	background: var(--pert-hover);
+	border-color: var(--pert-border);
+	text-decoration: none;
+}
+
+.pert-head__sub .pert-inline:focus {
+	background: var(--pert-focus-bg);
+	border-color: var(--pert-border-strong);
+	text-decoration: none;
+}
+
+.pert-head__sub .pert-inline[aria-invalid='true'] {
+	border-color: var(--pert-accent);
+}
+
 .pert-head__sub .pert-num {
 	white-space: nowrap;
 }
