@@ -68,6 +68,12 @@ Samma varningströsklar som i gruppestimat används: över 30 % relativ
 total standardavvikelse respektive över 40 % relativ spridning mellan
 användarnas förväntade totaler.
 
+Medelvärdesrutorna är märkta **AVG**. Intervallen visas under
+**Konfidensintervall**, med samma procentetiketter och layout som i PERT Pro.
+Formulär- och resultatkolumnerna har samma bredder som i PERT Pro.
+I användarnas utfällbara deluppgiftslistor visas titlar och tider i separata
+kolumner; långa titlar radbryts medan tiden hålls på en rad.
+
 Intervall för en, två och tre standardavvikelser använder en
 **normalapproximation**; procentsatserna är inte garanterade och är inte
 konfidensintervall för medelvärdet. Fler användare minskar inte automatiskt

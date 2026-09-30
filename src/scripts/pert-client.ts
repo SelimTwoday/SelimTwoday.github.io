@@ -657,7 +657,6 @@ function renderParticipantResult(result: PertResult): void {
 function renderConfidenceIntervals(
 	element: HTMLElement,
 	result: { expectedHours: number; standardDeviation: number; confidenceIntervals: ConfidenceInterval[] },
-	approximate = false,
 ): void {
 	element.replaceChildren(
 		...result.confidenceIntervals.map((interval) => {
@@ -666,7 +665,7 @@ function renderConfidenceIntervals(
 
 			const level = document.createElement('span');
 			level.className = 'confidence-row__level';
-			level.textContent = `±${interval.standardDeviations} SD (${approximate ? '≈ ' : ''}${interval.confidence})`;
+			level.textContent = `±${interval.standardDeviations} SD (${interval.confidence})`;
 
 			const calculation = document.createElement('span');
 			calculation.className = 'confidence-row__calculation';
@@ -733,7 +732,7 @@ function renderGroupTaskResult(result: GroupTaskPertResult): void {
 	setResultText('group-result-note', `${result.groups.length} användare, lika vikt per användare. Arbetsdag = ${formatSwedishNumber(result.hoursPerDay)} timmar. Alla uppskattar samma projektomfattning.`);
 	(document.getElementById('group-disagreement-warning') as HTMLElement).hidden = !result.teamDisagreement;
 	(document.getElementById('group-uncertainty-warning') as HTMLElement).hidden = !result.highUncertainty;
-	renderConfidenceIntervals(document.getElementById('group-confidence-list') as HTMLElement, result, true);
+	renderConfidenceIntervals(document.getElementById('group-confidence-list') as HTMLElement, result);
 
 	const comparison = document.getElementById('group-comparison') as HTMLElement;
 	comparison.replaceChildren(...result.groups.map((group) => {

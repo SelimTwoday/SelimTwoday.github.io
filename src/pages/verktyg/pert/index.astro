@@ -416,15 +416,15 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 						</p>
 						<div class="result-averages">
 							<div class="result-box">
-								<div class="result-box__label">Optimistisk medeltotal</div>
+								<div class="result-box__label">Optimistisk AVG</div>
 								<div class="result-box__value" id="group-average-o">–</div>
 							</div>
 							<div class="result-box">
-								<div class="result-box__label">Mest sannolik medeltotal</div>
+								<div class="result-box__label">Mest sannolik AVG</div>
 								<div class="result-box__value" id="group-average-m">–</div>
 							</div>
 							<div class="result-box">
-								<div class="result-box__label">Pessimistisk medeltotal</div>
+								<div class="result-box__label">Pessimistisk AVG</div>
 								<div class="result-box__value" id="group-average-p">–</div>
 							</div>
 						</div>
@@ -458,7 +458,7 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 								Stor osäkerhet i gruppestimatet. Granska risker, beroenden och deluppgifternas antaganden.
 							</p>
 						</div>
-						<h3 class="result-section-heading">Ungefärliga osäkerhetsintervall</h3>
+						<h3 class="result-section-heading">Konfidensintervall</h3>
 						<div id="group-confidence-list" class="confidence-list"></div>
 						<p class="result-note">
 							Intervallen använder en normalapproximation, inte ett konfidensintervall för
@@ -594,10 +594,6 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 		min-width: 0;
 	}
 
-	.pert-workspace[data-mode='grouptasks'] {
-		grid-template-columns: minmax(0, 0.8fr) minmax(22rem, 1fr);
-	}
-
 	.pert-workspace__result {
 		position: sticky;
 		top: 1.5rem;
@@ -605,10 +601,6 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 
 	@media (max-width: 900px) {
 		.pert-workspace {
-			grid-template-columns: 1fr;
-		}
-
-		.pert-workspace[data-mode='grouptasks'] {
 			grid-template-columns: 1fr;
 		}
 
@@ -1383,7 +1375,7 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 
 	.confidence-list :global(.confidence-row) {
 		display: grid;
-		grid-template-columns: minmax(5rem, 0.7fr) minmax(8rem, 1fr) minmax(9rem, 1.1fr);
+		grid-template-columns: minmax(8rem, 0.7fr) minmax(0, 1fr) max-content;
 		align-items: center;
 		gap: 0.75rem;
 		padding: 0.75rem 0.9rem;
@@ -1394,6 +1386,7 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 
 	.confidence-list :global(.confidence-row__level) {
 		font-weight: 800;
+		white-space: nowrap;
 	}
 
 	.confidence-list :global(.confidence-row__calculation) {
@@ -1407,12 +1400,12 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 		font-weight: 800;
 	}
 
-	.task-breakdown {
+	.result-panel :global(.task-breakdown) {
 		display: grid;
 		gap: 0.45rem;
 	}
 
-	.task-breakdown :global(.task-breakdown__row) {
+	.result-panel :global(.task-breakdown__row) {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) auto;
 		gap: 1rem;
@@ -1420,12 +1413,12 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 		border-bottom: 1px solid var(--color-border);
 	}
 
-	.task-breakdown :global(.task-breakdown__title) {
+	.result-panel :global(.task-breakdown__title) {
 		min-width: 0;
 		overflow-wrap: anywhere;
 	}
 
-	.task-breakdown :global(.task-breakdown__value) {
+	.result-panel :global(.task-breakdown__value) {
 		font-weight: 800;
 		white-space: nowrap;
 	}
