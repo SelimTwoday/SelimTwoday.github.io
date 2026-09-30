@@ -1,9 +1,12 @@
 import type {
+	ConfidenceInterval,
+	GroupTaskPertResult,
 	ParticipantEstimate,
 	PertResult,
 	PertSettings,
 	TaskEstimate,
 	TaskPertResult,
+	TaskGroupEstimate,
 } from './types';
 
 /** Arithmetic mean of a list of numbers. Assumes a non-empty array. */
@@ -35,6 +38,21 @@ export const TEAM_DISAGREEMENT_THRESHOLD = 0.4;
 /** PERT variance for one estimate, based on sigma = (P - O) / 6. */
 export function pertVariance(optimistic: number, pessimistic: number): number {
 	return ((pessimistic - optimistic) / 6) ** 2;
+}
+
+function confidenceIntervals(
+	expectedHours: number,
+	deviation: number,
+	clampLower = false,
+): ConfidenceInterval[] {
+	return ([1, 2, 3] as const).map((level) => ({
+		standardDeviations: level,
+		confidence: level === 1 ? '68 %' : level === 2 ? '95 %' : '99,7 %',
+		lowerHours: clampLower
+			? Math.max(0, expectedHours - level * deviation)
+			: expectedHours - level * deviation,
+		upperHours: expectedHours + level * deviation,
+	}));
 }
 
 /**
@@ -129,25 +147,49 @@ export function calculateTaskPert(tasks: TaskEstimate[], hoursPerDay: number): T
 		standardDeviation,
 		hoursPerDay,
 		workdays: expectedHours / hoursPerDay,
-		confidenceIntervals: [
-			{
-				standardDeviations: 1,
-				confidence: '68 %',
-				lowerHours: expectedHours - standardDeviation,
-				upperHours: expectedHours + standardDeviation,
-			},
-			{
-				standardDeviations: 2,
-				confidence: '95 %',
-				lowerHours: expectedHours - 2 * standardDeviation,
-				upperHours: expectedHours + 2 * standardDeviation,
-			},
-			{
-				standardDeviations: 3,
-				confidence: '99,7 %',
-				lowerHours: expectedHours - 3 * standardDeviation,
-				upperHours: expectedHours + 3 * standardDeviation,
-			},
-		],
+		confidenceIntervals: confidenceIntervals(expectedHours, standardDeviation),
+	};
+}
+
+/**
+ * Each user estimates the same scope with their own task breakdown.
+ * Total variance = mean within-user variance + variance of user totals.
+ * This models uncertainty in the project, not the standard error of a mean:
+ * adding users must not make shared project uncertainty vanish.
+ */
+export function calculateGroupTaskPert(
+	groups: TaskGroupEstimate[],
+	hoursPerDay: number,
+): GroupTaskPertResult {
+	const totals = groups.map((group) => ({
+		name: group.name,
+		...calculateTaskPert(group.tasks, hoursPerDay),
+	}));
+	const expectedHours = average(totals.map((total) => total.expectedHours));
+	const withinVariance = average(totals.map((total) => total.variance));
+	const betweenVariance = average(totals.map((total) => (total.expectedHours - expectedHours) ** 2));
+	const variance = withinVariance + betweenVariance;
+	const deviation = Math.sqrt(variance);
+	const relativeDisagreement = expectedHours > 0 ? Math.sqrt(betweenVariance) / expectedHours : 0;
+
+	return {
+		groups: totals.map((total) => ({
+			...total,
+			deviationHours: total.expectedHours - expectedHours,
+		})),
+		averageO: average(totals.map((total) => total.totalO)),
+		averageM: average(totals.map((total) => total.totalM)),
+		averageP: average(totals.map((total) => total.totalP)),
+		expectedHours,
+		withinVariance,
+		betweenVariance,
+		variance,
+		standardDeviation: deviation,
+		relativeDisagreement,
+		teamDisagreement: relativeDisagreement > TEAM_DISAGREEMENT_THRESHOLD,
+		highUncertainty: expectedHours > 0 && deviation / expectedHours > HIGH_UNCERTAINTY_THRESHOLD,
+		hoursPerDay,
+		workdays: expectedHours / hoursPerDay,
+		confidenceIntervals: confidenceIntervals(expectedHours, deviation, true),
 	};
 }

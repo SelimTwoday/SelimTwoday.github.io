@@ -22,6 +22,46 @@ export interface TaskRowInput extends ParticipantRowInput {
 	title: string;
 }
 
+export type PertMode = 'participants' | 'tasks' | 'grouptasks';
+
+export interface TaskGroupInput {
+	name: string;
+	tasks: TaskRowInput[];
+}
+
+export interface TaskGroupEstimate {
+	name: string;
+	tasks: TaskEstimate[];
+}
+
+export interface TaskGroupResult extends TaskPertResult {
+	name: string;
+	deviationHours: number;
+}
+
+/** Equal-weight mixture of users' project estimates, not a sum of their work. */
+export interface GroupTaskPertResult {
+	groups: TaskGroupResult[];
+	averageO: number;
+	averageM: number;
+	averageP: number;
+	expectedHours: number;
+	withinVariance: number;
+	betweenVariance: number;
+	variance: number;
+	standardDeviation: number;
+	relativeDisagreement: number;
+	teamDisagreement: boolean;
+	highUncertainty: boolean;
+	hoursPerDay: number;
+	workdays: number;
+	confidenceIntervals: ConfidenceInterval[];
+}
+
+export type GroupTaskPertValidationResult =
+	| { valid: true; errors: []; groups: TaskGroupEstimate[]; result: GroupTaskPertResult }
+	| { valid: false; errors: FieldError[]; groups: null; result: null };
+
 /** Global settings that apply to the whole estimation. */
 export interface PertSettings {
 	/** Meeting/estimation hours spent per person. */

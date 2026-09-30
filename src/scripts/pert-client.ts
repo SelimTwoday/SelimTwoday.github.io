@@ -1,21 +1,27 @@
 import { toBlob } from 'html-to-image';
+import { initEnterpriseGag } from './enterprise-gag';
 import {
+	buildGroupTaskPertShareUrl,
 	buildPertShareUrl,
 	buildTaskPertShareUrl,
 	DEFAULT_HOURS_PER_DAY,
 	formatSwedishNumber,
 	parsePertSearchParams,
+	parseTaskLinkImport,
+	validateGroupTaskPertForm,
 	validatePertForm,
 	validateTaskPertForm,
 	type FieldError,
+	type GroupTaskPertResult,
+	type ConfidenceInterval,
 	type ParticipantRowInput,
 	type PertResult,
 	type PertSettingsInput,
+	type PertMode,
+	type TaskGroupInput,
 	type TaskPertResult,
 	type TaskRowInput,
 } from '../lib/pert';
-
-type PertMode = 'participants' | 'tasks';
 
 interface RowRefs {
 	li: HTMLLIElement;
@@ -27,11 +33,33 @@ interface RowRefs {
 	removeButton: HTMLButtonElement;
 }
 
+interface TaskGroupRefs {
+	element: HTMLElement;
+	nameInput: HTMLInputElement;
+	list: HTMLUListElement;
+	addButton: HTMLButtonElement;
+	removeButton: HTMLButtonElement;
+	errorEl: HTMLParagraphElement;
+	totalEl: HTMLParagraphElement;
+}
+
 const modeInputs = Array.from(
 	document.querySelectorAll<HTMLInputElement>('input[name="pert-mode"]'),
 );
 const participantForm = document.getElementById('participant-form') as HTMLFormElement;
 const taskForm = document.getElementById('task-form') as HTMLFormElement;
+const groupTaskForm = document.getElementById('group-task-form') as HTMLFormElement;
+const taskGroupsEl = document.getElementById('task-groups') as HTMLDivElement;
+const taskGroupTemplate = document.getElementById('task-group-template') as HTMLTemplateElement;
+const addTaskGroupButton = document.getElementById('add-task-group-button') as HTMLButtonElement;
+const groupUserCount = document.getElementById('group-user-count') as HTMLElement;
+const groupHoursInput = document.getElementById('group-hours-per-day') as HTMLInputElement;
+const groupHoursError = document.getElementById('group-hours-error') as HTMLParagraphElement;
+const groupImportUrl = document.getElementById('group-import-url') as HTMLInputElement;
+const groupImportName = document.getElementById('group-import-name') as HTMLInputElement;
+const groupImportButton = document.getElementById('group-import-button') as HTMLButtonElement;
+const groupImportStatus = document.getElementById('group-import-status') as HTMLParagraphElement;
+const urlStatus = document.getElementById('pert-url-status') as HTMLParagraphElement;
 const participantRowsList = document.getElementById('participant-rows') as HTMLUListElement;
 const taskRowsList = document.getElementById('task-rows') as HTMLUListElement;
 const participantRowTemplate = document.getElementById('row-template') as HTMLTemplateElement;
@@ -44,6 +72,7 @@ const meetingErrorEl = document.getElementById('meeting-hours-error') as HTMLPar
 const globalErrorsEl = document.getElementById('pert-errors') as HTMLDivElement;
 const removeTaskDialog = document.getElementById('remove-task-dialog') as HTMLDialogElement;
 const removeTaskCopy = document.getElementById('remove-task-copy') as HTMLParagraphElement;
+const removeTaskTitle = document.getElementById('remove-task-title') as HTMLHeadingElement;
 const cancelRemoveTaskButton = document.getElementById('cancel-remove-task') as HTMLButtonElement;
 const confirmRemoveTaskButton = document.getElementById('confirm-remove-task') as HTMLButtonElement;
 
@@ -52,6 +81,7 @@ const resultEmptyEl = document.getElementById('pert-result-empty') as HTMLElemen
 const resultEmptyCopy = document.getElementById('result-empty-copy') as HTMLParagraphElement;
 const participantResultEl = document.getElementById('participant-result') as HTMLElement;
 const taskResultEl = document.getElementById('task-result') as HTMLElement;
+const groupTaskResultEl = document.getElementById('group-task-result') as HTMLElement;
 const avgOEl = document.getElementById('avg-o') as HTMLElement;
 const avgMEl = document.getElementById('avg-m') as HTMLElement;
 const avgPEl = document.getElementById('avg-p') as HTMLElement;
@@ -85,11 +115,13 @@ const combinedButton = document.getElementById('combined-button') as HTMLButtonE
 const shareStatus = document.getElementById('share-status') as HTMLParagraphElement;
 const pngStatus = document.getElementById('png-status') as HTMLParagraphElement;
 const combinedStatus = document.getElementById('combined-status') as HTMLParagraphElement;
+const enterpriseGag = initEnterpriseGag();
 
 let mode: PertMode = 'participants';
-let pendingTaskRemoval: RowRefs | null = null;
+let pendingRemoval: { trigger: HTMLButtonElement; confirm: () => void } | null = null;
 let draggedTaskRow: HTMLLIElement | null = null;
 let draggedTaskStartIndex = -1;
+let nextFieldId = 0;
 
 function getRows(list: HTMLUListElement, includeTitle = false): RowRefs[] {
 	return Array.from(list.querySelectorAll<HTMLLIElement>('li.participant-row')).map((li) => ({
@@ -118,13 +150,13 @@ function syncParticipantMeta(): void {
 }
 
 function getActiveRows(): RowRefs[] {
-	return mode === 'participants'
-		? getRows(participantRowsList)
-		: getRows(taskRowsList, true);
+	if (mode === 'participants') return getRows(participantRowsList);
+	if (mode === 'grouptasks') return getTaskGroups().flatMap((group) => getRows(group.list, true));
+	return getRows(taskRowsList, true);
 }
 
 function renumberRows(list: HTMLUListElement, label: string): void {
-	getRows(list, list === taskRowsList).forEach((row, index) => {
+	getRows(list, list !== participantRowsList).forEach((row, index) => {
 		const title = row.li.querySelector('.participant-row__title');
 		if (title) title.textContent = `${label} ${index + 1}`;
 		if (row.titleInput?.dataset.generatedTitle === 'true') {
@@ -136,7 +168,7 @@ function renumberRows(list: HTMLUListElement, label: string): void {
 }
 
 function updateRemoveButtons(list: HTMLUListElement): void {
-	const rows = getRows(list, list === taskRowsList);
+	const rows = getRows(list, list !== participantRowsList);
 	for (const row of rows) row.removeButton.disabled = rows.length <= 1;
 }
 
@@ -147,7 +179,7 @@ function clearActionStatus(): void {
 }
 
 function removeRow(row: RowRefs, list: HTMLUListElement, label: string): void {
-	const rows = getRows(list, list === taskRowsList);
+	const rows = getRows(list, list !== participantRowsList);
 	const removedIndex = rows.findIndex((candidate) => candidate.li === row.li);
 	row.li.remove();
 	if (list === participantRowsList) syncParticipantMeta();
@@ -156,7 +188,7 @@ function removeRow(row: RowRefs, list: HTMLUListElement, label: string): void {
 	clearActionStatus();
 	render();
 
-	const remainingRows = getRows(list, list === taskRowsList);
+	const remainingRows = getRows(list, list !== participantRowsList);
 	const focusRow = remainingRows[removedIndex] ?? remainingRows[removedIndex - 1];
 	(focusRow
 		? (focusRow.titleInput ?? focusRow.oInput)
@@ -170,14 +202,18 @@ function hasEstimateData(row: RowRefs): boolean {
 	return [row.oInput, row.mInput, row.pInput].some((input) => input.value.trim() !== '');
 }
 
-function requestTaskRemoval(row: RowRefs): void {
+function requestTaskRemoval(row: RowRefs, list: HTMLUListElement): void {
 	if (!hasEstimateData(row)) {
-		removeRow(row, taskRowsList, 'Deluppgift');
+		removeRow(row, list, 'Deluppgift');
 		return;
 	}
 
-	pendingTaskRemoval = row;
+	pendingRemoval = {
+		trigger: row.removeButton,
+		confirm: () => removeRow(row, list, 'Deluppgift'),
+	};
 	const taskTitle = row.titleInput?.value.trim() || 'deluppgiften';
+	removeTaskTitle.textContent = 'Ta bort deluppgift?';
 	removeTaskCopy.textContent = `Är du säker på att du vill ta bort ”${taskTitle}”? Inmatade O-, M- och P-värden försvinner.`;
 	removeTaskDialog.showModal();
 	cancelRemoveTaskButton.focus();
@@ -185,52 +221,79 @@ function requestTaskRemoval(row: RowRefs): void {
 
 function finishTaskReorder(): void {
 	if (!draggedTaskRow) return;
-	const nextIndex = Array.from(taskRowsList.children).indexOf(draggedTaskRow);
+	const list = draggedTaskRow.parentElement;
+	if (!(list instanceof HTMLUListElement)) return;
+	const nextIndex = Array.from(list.children).indexOf(draggedTaskRow);
 	draggedTaskRow.classList.remove('task-row--dragging');
 	draggedTaskRow = null;
 
 	if (nextIndex !== draggedTaskStartIndex) {
-		renumberRows(taskRowsList, 'Deluppgift');
+		renumberRows(list, 'Deluppgift');
 		clearActionStatus();
 		render();
+		setResultText('task-reorder-status', `Deluppgiften flyttades till plats ${nextIndex + 1}.`);
 	}
 	draggedTaskStartIndex = -1;
 }
 
-function bindTaskReordering(row: RowRefs): void {
-	let activePointerId: number | null = null;
+function bindTaskReordering(row: RowRefs, list: HTMLUListElement): void {
+	row.li.tabIndex = 0;
+	row.li.setAttribute('aria-describedby', 'task-reorder-hint');
+	row.li.setAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown');
+	row.li.addEventListener('keydown', (event) => {
+		if (event.target !== row.li || !event.altKey ||
+			(event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+		event.preventDefault();
+		const sibling = event.key === 'ArrowUp' ? row.li.previousElementSibling : row.li.nextElementSibling;
+		if (!(sibling instanceof HTMLLIElement)) return;
+		if (event.key === 'ArrowUp') list.insertBefore(row.li, sibling);
+		else list.insertBefore(sibling, row.li);
+		renumberRows(list, 'Deluppgift');
+		clearActionStatus();
+		render();
+		row.li.focus();
+		setResultText('task-reorder-status', `Deluppgiften flyttades till plats ${Array.from(list.children).indexOf(row.li) + 1}.`);
+	});
+
+	row.li.addEventListener('touchstart', (event) => {
+		if (draggedTaskRow === row.li) event.preventDefault();
+	}, { passive: false });
 
 	row.li.addEventListener('pointerdown', (event) => {
-		if (event.button !== 0 || draggedTaskRow) return;
-		if (event.target instanceof Element && event.target.closest('input, textarea, button, label')) {
+		if (event.button !== 0 || !event.isPrimary || draggedTaskRow) return;
+		if (event.target instanceof Element && event.target.closest('input, textarea, button')) {
 			return;
 		}
 		event.preventDefault();
-		activePointerId = event.pointerId;
 		draggedTaskRow = row.li;
-		draggedTaskStartIndex = Array.from(taskRowsList.children).indexOf(row.li);
+		draggedTaskStartIndex = Array.from(list.children).indexOf(row.li);
 		row.li.classList.add('task-row--dragging');
+
+		const pointerId = event.pointerId;
+		const controller = new AbortController();
+		list.setPointerCapture(pointerId);
+		list.addEventListener('pointermove', (move) => {
+			if (move.pointerId !== pointerId || draggedTaskRow !== row.li) return;
+			move.preventDefault();
+			const target = getRows(list, true).find((candidate) => {
+				if (candidate.li === row.li) return false;
+				const rect = candidate.li.getBoundingClientRect();
+				return move.clientY < rect.top + rect.height / 2;
+			});
+			list.insertBefore(row.li, target?.li ?? null);
+			if (move.clientY < 60) window.scrollBy(0, -16);
+			else if (move.clientY > window.innerHeight - 60) window.scrollBy(0, 16);
+		}, { signal: controller.signal, passive: false });
+		const end = (up: PointerEvent): void => {
+			if (up.pointerId !== pointerId) return;
+			controller.abort();
+			if (list.hasPointerCapture(pointerId)) list.releasePointerCapture(pointerId);
+			finishTaskReorder();
+		};
+		list.addEventListener('pointerup', end, { signal: controller.signal });
+		list.addEventListener('pointercancel', end, { signal: controller.signal });
+		list.addEventListener('lostpointercapture', end, { signal: controller.signal });
 	});
-
-	document.addEventListener('pointermove', (event) => {
-		if (event.pointerId !== activePointerId || draggedTaskRow !== row.li) return;
-		event.preventDefault();
-		const target = document
-			.elementFromPoint(event.clientX, event.clientY)
-			?.closest<HTMLLIElement>('li.task-row');
-		if (!target || target === draggedTaskRow || target.parentElement !== taskRowsList) return;
-		const rect = target.getBoundingClientRect();
-		const insertBefore = event.clientY < rect.top + rect.height / 2;
-		taskRowsList.insertBefore(draggedTaskRow, insertBefore ? target : target.nextSibling);
-	}, { passive: false });
-
-	const endPointerDrag = (event: PointerEvent): void => {
-		if (event.pointerId !== activePointerId) return;
-		activePointerId = null;
-		finishTaskReorder();
-	};
-	document.addEventListener('pointerup', endPointerDrag);
-	document.addEventListener('pointercancel', endPointerDrag);
 }
 
 function bindRow(li: HTMLLIElement, list: HTMLUListElement, label: string): HTMLLIElement {
@@ -247,12 +310,12 @@ function bindRow(li: HTMLLIElement, list: HTMLUListElement, label: string): HTML
 
 	const removeButton = li.querySelector('.participant-row__remove') as HTMLButtonElement;
 	removeButton.addEventListener('click', () => {
-		const row = getRowsFromElement(li, list === taskRowsList);
-		if (list === taskRowsList) requestTaskRemoval(row);
+		const row = getRowsFromElement(li, list !== participantRowsList);
+		if (list !== participantRowsList) requestTaskRemoval(row, list);
 		else removeRow(row, list, label);
 	});
 
-	if (list === taskRowsList) bindTaskReordering(getRowsFromElement(li, true));
+	if (list !== participantRowsList) bindTaskReordering(getRowsFromElement(li, true), list);
 	return li;
 }
 
@@ -274,7 +337,11 @@ function addParticipantRow(
 	if (options?.focus) row.oInput.focus();
 }
 
-function addTaskRow(values?: TaskRowInput, options?: { focus?: boolean }): void {
+function addTaskRow(
+	values?: TaskRowInput,
+	options?: { focus?: boolean },
+	list = taskRowsList,
+): void {
 	const fragment = taskRowTemplate.content.cloneNode(true) as DocumentFragment;
 	const li = fragment.querySelector('li.participant-row') as HTMLLIElement;
 	const row = getRowsFromElement(li, true);
@@ -284,12 +351,16 @@ function addTaskRow(values?: TaskRowInput, options?: { focus?: boolean }): void 
 		row.mInput.value = values.m;
 		row.pInput.value = values.p;
 	} else if (row.titleInput) {
-		row.titleInput.value = `Deluppgift ${getRows(taskRowsList, true).length + 1}`;
+		row.titleInput.value = `Deluppgift ${getRows(list, true).length + 1}`;
 		row.titleInput.dataset.generatedTitle = 'true';
 	}
-	taskRowsList.appendChild(bindRow(li, taskRowsList, 'Deluppgift'));
-	renumberRows(taskRowsList, 'Deluppgift');
-	updateRemoveButtons(taskRowsList);
+	row.errorEl.id = `task-field-error-${nextFieldId++}`;
+	for (const input of [row.titleInput, row.oInput, row.mInput, row.pInput]) {
+		input?.setAttribute('aria-describedby', row.errorEl.id);
+	}
+	list.appendChild(bindRow(li, list, 'Deluppgift'));
+	renumberRows(list, 'Deluppgift');
+	updateRemoveButtons(list);
 	if (options?.focus && row.titleInput) {
 		row.titleInput.focus();
 		row.titleInput.select();
@@ -327,6 +398,138 @@ function collectTaskInputs(rows: RowRefs[]): TaskRowInput[] {
 	}));
 }
 
+function getTaskGroups(): TaskGroupRefs[] {
+	return Array.from(taskGroupsEl.querySelectorAll<HTMLElement>('.task-group')).map((element) => ({
+		element,
+		nameInput: element.querySelector('.task-group__name') as HTMLInputElement,
+		list: element.querySelector('.task-group__rows') as HTMLUListElement,
+		addButton: element.querySelector('.task-group__add-task') as HTMLButtonElement,
+		removeButton: element.querySelector('.task-group__remove') as HTMLButtonElement,
+		errorEl: element.querySelector('.task-group__error') as HTMLParagraphElement,
+		totalEl: element.querySelector('.task-group__total') as HTMLParagraphElement,
+	}));
+}
+
+function collectGroupInputs(): TaskGroupInput[] {
+	return getTaskGroups().map((group) => ({
+		name: group.nameInput.value,
+		tasks: collectTaskInputs(getRows(group.list, true)),
+	}));
+}
+
+function syncTaskGroups(): void {
+	const groups = getTaskGroups();
+	groupUserCount.textContent = `(${groups.length})`;
+	groups.forEach((group, index) => {
+		if (group.nameInput.dataset.generatedName === 'true') {
+			group.nameInput.value = `Användare ${index + 1}`;
+		}
+		group.removeButton.disabled = groups.length <= 1;
+		group.removeButton.setAttribute('aria-label', `Ta bort ${group.nameInput.value || `användare ${index + 1}`}`);
+		group.nameInput.setAttribute('aria-label', `Namn för användare ${index + 1}`);
+		const count = group.element.querySelector('.task-group__count');
+		if (count) count.textContent = `(${getRows(group.list, true).length})`;
+	});
+}
+
+function removeTaskGroup(group: TaskGroupRefs): void {
+	const groups = getTaskGroups();
+	const index = groups.findIndex((candidate) => candidate.element === group.element);
+	group.element.remove();
+	syncTaskGroups();
+	clearActionStatus();
+	render();
+	const remaining = getTaskGroups();
+	(remaining[index]?.nameInput ?? remaining[index - 1]?.nameInput ?? addTaskGroupButton).focus();
+}
+
+function addTaskGroup(values?: TaskGroupInput, focus = false): void {
+	const fragment = taskGroupTemplate.content.cloneNode(true) as DocumentFragment;
+	const element = fragment.querySelector('.task-group') as HTMLElement;
+	taskGroupsEl.appendChild(element);
+	const group = getTaskGroups().find((candidate) => candidate.element === element);
+	if (!group) throw new Error('Kunde inte skapa användarens formulär.');
+
+	group.errorEl.id = `group-field-error-${nextFieldId++}`;
+	group.nameInput.setAttribute('aria-describedby', group.errorEl.id);
+	group.nameInput.value = values?.name ?? `Användare ${getTaskGroups().length}`;
+	if (!values) group.nameInput.dataset.generatedName = 'true';
+	if (values?.tasks.length) {
+		for (const task of values.tasks) addTaskRow(task, undefined, group.list);
+	} else {
+		addTaskRow(undefined, undefined, group.list);
+	}
+	group.nameInput.addEventListener('input', () => {
+		delete group.nameInput.dataset.generatedName;
+		clearActionStatus();
+		render();
+	});
+	group.addButton.addEventListener('click', () => {
+		addTaskRow(undefined, { focus: true }, group.list);
+		clearActionStatus();
+		render();
+	});
+	group.removeButton.addEventListener('click', () => {
+		if (!getRows(group.list, true).some(hasEstimateData)) {
+			removeTaskGroup(group);
+			return;
+		}
+		pendingRemoval = { trigger: group.removeButton, confirm: () => removeTaskGroup(group) };
+		removeTaskTitle.textContent = 'Ta bort användare?';
+		removeTaskCopy.textContent = `Är du säker på att du vill ta bort ”${group.nameInput.value}”? Alla användarens deluppgifter och O-, M- och P-värden försvinner.`;
+		removeTaskDialog.showModal();
+		cancelRemoveTaskButton.focus();
+	});
+	element.querySelector('.task-group__reuse')?.addEventListener('click', () => {
+		addTaskGroup({
+			name: `Användare ${getTaskGroups().length + 1}`,
+			tasks: collectTaskInputs(getRows(group.list, true)).map((task) => ({
+				title: task.title, o: '', m: '', p: '',
+			})),
+		}, true);
+		clearActionStatus();
+		render();
+	});
+	syncTaskGroups();
+	if (focus) {
+		group.nameInput.focus();
+		group.nameInput.select();
+	}
+}
+
+function importTaskGroups(): void {
+	const existing = getTaskGroups();
+	const placeholder = existing.length === 1 &&
+		existing[0].nameInput.dataset.generatedName === 'true' &&
+		getRows(existing[0].list, true).every((row) =>
+			row.titleInput?.dataset.generatedTitle === 'true' && !hasEstimateData(row));
+	const name = groupImportName.value.trim() || `Användare ${placeholder ? 1 : existing.length + 1}`;
+	const imported = parseTaskLinkImport(groupImportUrl.value, name);
+	if (!imported.valid) {
+		groupImportUrl.setAttribute('aria-invalid', 'true');
+		groupImportStatus.dataset.tone = 'error';
+		groupImportStatus.textContent = imported.message;
+		return;
+	}
+
+	// Replace only the untouched initial placeholder; all entered data is kept.
+	if (placeholder) {
+		existing[0].element.remove();
+		groupHoursInput.value = imported.hoursPerDay;
+	}
+	for (const group of imported.groups) addTaskGroup(group);
+	clearActionStatus();
+	render();
+	groupImportUrl.removeAttribute('aria-invalid');
+	groupImportUrl.value = '';
+	groupImportName.value = '';
+	groupImportStatus.dataset.tone = 'success';
+	groupImportStatus.textContent = `${imported.groups.length} ${imported.groups.length === 1 ? 'användare importerad' : 'användare importerade'}. Befintliga estimat behålls.`;
+	if (imported.hoursPerDay !== groupHoursInput.value) {
+		groupImportStatus.textContent += ` Tiderna importeras i timmar; gruppens arbetsdag (${groupHoursInput.value} h) används i stället för länkens (${imported.hoursPerDay} h).`;
+	}
+}
+
 function collectSettingsInput(): PertSettingsInput {
 	return {
 		meetingHoursPerPerson: meetingInput.value,
@@ -346,6 +549,12 @@ function clearFieldStates(rows: RowRefs[]): void {
 	meetingErrorEl.textContent = '';
 	globalErrorsEl.hidden = true;
 	globalErrorsEl.textContent = '';
+	groupHoursInput.removeAttribute('aria-invalid');
+	groupHoursError.textContent = '';
+	for (const group of getTaskGroups()) {
+		group.nameInput.removeAttribute('aria-invalid');
+		group.errorEl.textContent = '';
+	}
 }
 
 function applyErrors(errors: FieldError[], rows: RowRefs[]): void {
@@ -389,6 +598,34 @@ function applyErrors(errors: FieldError[], rows: RowRefs[]): void {
 	}
 }
 
+function applyGroupErrors(errors: FieldError[]): void {
+	const groups = getTaskGroups();
+	const global: FieldError[] = [];
+	for (const error of errors) {
+		const match = /^group-(\d+)-(.+)$/.exec(error.field);
+		if (match) {
+			const group = groups[Number(match[1])];
+			if (!group) continue;
+			const field = match[2];
+			if (field === 'name') {
+				group.nameInput.setAttribute('aria-invalid', 'true');
+				group.errorEl.textContent = error.message;
+			} else if (field === 'tasks') {
+				group.errorEl.textContent = error.message;
+			} else {
+				applyErrors([{ ...error, field }], getRows(group.list, true));
+				(group.element.querySelector('.task-group__details') as HTMLDetailsElement).open = true;
+			}
+		} else if (error.field === 'settings-hoursPerDay') {
+			groupHoursInput.setAttribute('aria-invalid', 'true');
+			groupHoursError.textContent = error.message;
+		} else {
+			global.push(error);
+		}
+	}
+	applyErrors(global, []);
+}
+
 function renderParticipantResult(result: PertResult): void {
 	const pertDays = result.pertHours / result.hoursPerDay;
 	const meetingDays = result.meetingTotalHours / result.hoursPerDay;
@@ -417,22 +654,19 @@ function renderParticipantResult(result: PertResult): void {
 		: '';
 }
 
-function renderTaskResult(result: TaskPertResult): void {
-	taskTotalOEl.textContent = `${formatSwedishNumber(result.totalO)} h`;
-	taskTotalMEl.textContent = `${formatSwedishNumber(result.totalM)} h`;
-	taskTotalPEl.textContent = `${formatSwedishNumber(result.totalP)} h`;
-	taskExpectedHoursEl.textContent = `${formatSwedishNumber(result.expectedHours)} timmar`;
-	taskExpectedDaysEl.textContent = `≈ ${formatSwedishNumber(result.workdays)} arbetsdagar`;
-	taskStandardDeviationEl.textContent = `${formatSwedishNumber(result.standardDeviation, 2)} timmar`;
-
-	confidenceListEl.replaceChildren(
+function renderConfidenceIntervals(
+	element: HTMLElement,
+	result: { expectedHours: number; standardDeviation: number; confidenceIntervals: ConfidenceInterval[] },
+	approximate = false,
+): void {
+	element.replaceChildren(
 		...result.confidenceIntervals.map((interval) => {
 			const row = document.createElement('div');
 			row.className = 'confidence-row';
 
 			const level = document.createElement('span');
 			level.className = 'confidence-row__level';
-			level.textContent = `±${interval.standardDeviations} SD (${interval.confidence})`;
+			level.textContent = `±${interval.standardDeviations} SD (${approximate ? '≈ ' : ''}${interval.confidence})`;
 
 			const calculation = document.createElement('span');
 			calculation.className = 'confidence-row__calculation';
@@ -446,9 +680,11 @@ function renderTaskResult(result: TaskPertResult): void {
 			return row;
 		}),
 	);
+}
 
-	taskBreakdownEl.replaceChildren(
-		...result.tasks.map((task) => {
+function renderTaskBreakdown(element: HTMLElement, tasks: TaskPertResult['tasks']): void {
+	element.replaceChildren(
+		...tasks.map((task) => {
 			const row = document.createElement('div');
 			row.className = 'task-breakdown__row';
 
@@ -464,8 +700,64 @@ function renderTaskResult(result: TaskPertResult): void {
 			return row;
 		}),
 	);
+}
 
+function renderTaskResult(result: TaskPertResult): void {
+	taskTotalOEl.textContent = `${formatSwedishNumber(result.totalO)} h`;
+	taskTotalMEl.textContent = `${formatSwedishNumber(result.totalM)} h`;
+	taskTotalPEl.textContent = `${formatSwedishNumber(result.totalP)} h`;
+	taskExpectedHoursEl.textContent = `${formatSwedishNumber(result.expectedHours)} timmar`;
+	taskExpectedDaysEl.textContent = `≈ ${formatSwedishNumber(result.workdays)} arbetsdagar`;
+	taskStandardDeviationEl.textContent = `${formatSwedishNumber(result.standardDeviation, 2)} timmar`;
+	renderConfidenceIntervals(confidenceListEl, result);
+	renderTaskBreakdown(taskBreakdownEl, result.tasks);
 	taskNoteEl.textContent = `${result.tasks.length} deluppgifter. Arbetsdag = ${formatSwedishNumber(result.hoursPerDay, 0)} timmar.`;
+}
+
+function setResultText(id: string, text: string): void {
+	const element = document.getElementById(id);
+	if (!element) throw new Error(`Resultatfält saknas: ${id}`);
+	element.textContent = text;
+}
+
+function renderGroupTaskResult(result: GroupTaskPertResult): void {
+	setResultText('group-average-o', `${formatSwedishNumber(result.averageO)} h`);
+	setResultText('group-average-m', `${formatSwedishNumber(result.averageM)} h`);
+	setResultText('group-average-p', `${formatSwedishNumber(result.averageP)} h`);
+	setResultText('group-expected-hours', `${formatSwedishNumber(result.expectedHours)} timmar`);
+	setResultText('group-expected-days', `≈ ${formatSwedishNumber(result.workdays)} arbetsdagar`);
+	setResultText('group-standard-deviation', `${formatSwedishNumber(result.standardDeviation, 2)} timmar`);
+	setResultText('group-within-deviation', `${formatSwedishNumber(Math.sqrt(result.withinVariance), 2)} h`);
+	setResultText('group-between-deviation', `${formatSwedishNumber(Math.sqrt(result.betweenVariance), 2)} h`);
+	setResultText('group-disagreement', `${formatSwedishNumber(result.relativeDisagreement * 100)} % relativ spridning mellan totalerna`);
+	setResultText('group-result-note', `${result.groups.length} användare, lika vikt per användare. Arbetsdag = ${formatSwedishNumber(result.hoursPerDay)} timmar. Alla uppskattar samma projektomfattning.`);
+	(document.getElementById('group-disagreement-warning') as HTMLElement).hidden = !result.teamDisagreement;
+	(document.getElementById('group-uncertainty-warning') as HTMLElement).hidden = !result.highUncertainty;
+	renderConfidenceIntervals(document.getElementById('group-confidence-list') as HTMLElement, result, true);
+
+	const comparison = document.getElementById('group-comparison') as HTMLElement;
+	comparison.replaceChildren(...result.groups.map((group) => {
+		const section = document.createElement('details');
+		section.className = 'group-comparison__person';
+		const summary = document.createElement('summary');
+		summary.title = 'Visa användarens deluppgifter';
+		const name = document.createElement('strong');
+		name.textContent = group.name;
+		const total = document.createElement('span');
+		total.className = 'group-comparison__total';
+		total.textContent = `${formatSwedishNumber(group.expectedHours)} h`;
+		summary.append(name, total);
+		const meta = document.createElement('span');
+		meta.className = 'group-comparison__meta';
+		const signedDeviation = `${group.deviationHours > 0 ? '+' : ''}${formatSwedishNumber(group.deviationHours)} h`;
+		meta.textContent = `${group.tasks.length} deluppgifter · SD ${formatSwedishNumber(group.standardDeviation, 2)} h · Avvikelse från gruppen ${signedDeviation}`;
+		const breakdown = document.createElement('div');
+		breakdown.className = 'task-breakdown';
+		renderTaskBreakdown(breakdown, group.tasks);
+		summary.append(meta);
+		section.append(summary, breakdown);
+		return section;
+	}));
 }
 
 function setResultVisibility(valid: boolean): void {
@@ -481,6 +773,34 @@ function render(): void {
 	clearFieldStates(rows);
 	participantResultEl.hidden = mode !== 'participants';
 	taskResultEl.hidden = mode !== 'tasks';
+	groupTaskResultEl.hidden = mode !== 'grouptasks';
+
+	if (mode === 'grouptasks') {
+		syncTaskGroups();
+		for (const group of getTaskGroups()) {
+			const individual = validateTaskPertForm(
+				collectTaskInputs(getRows(group.list, true)),
+				String(DEFAULT_HOURS_PER_DAY),
+			);
+			group.totalEl.textContent = individual.valid
+				? `${individual.result.tasks.length} deluppgifter · ${formatSwedishNumber(individual.result.expectedHours)} h · SD ${formatSwedishNumber(individual.result.standardDeviation, 2)} h`
+				: 'Fyll i giltiga O-, M- och P-värden för alla deluppgifter.';
+		}
+		const validation = validateGroupTaskPertForm(collectGroupInputs(), groupHoursInput.value);
+		if (!validation.valid) {
+			applyGroupErrors(validation.errors);
+			setResultVisibility(false);
+			window.history.replaceState(null, '', `${window.location.pathname}?mode=grouptasks`);
+			return;
+		}
+		renderGroupTaskResult(validation.result);
+		setResultVisibility(true);
+		window.history.replaceState(null, '', buildGroupTaskPertShareUrl(
+			window.location.origin + window.location.pathname,
+			validation.groups, validation.result.hoursPerDay,
+		));
+		return;
+	}
 
 	if (mode === 'participants') {
 		const validation = validatePertForm(collectParticipantInputs(rows), collectSettingsInput());
@@ -532,15 +852,30 @@ function setMode(nextMode: PertMode): void {
 	mode = nextMode;
 	participantForm.hidden = mode !== 'participants';
 	taskForm.hidden = mode !== 'tasks';
+	groupTaskForm.hidden = mode !== 'grouptasks';
+	const workspace = groupTaskForm.closest<HTMLElement>('.pert-workspace');
+	if (workspace) workspace.dataset.mode = mode;
 	resultEmptyCopy.textContent =
 		mode === 'participants'
 			? 'Fyll i minst en deltagare med giltiga O-, M- och P-värden så visas resultatet här.'
-			: 'Fyll i minst en namngiven deluppgift med giltiga O-, M- och P-värden så visas resultatet här.';
+			: mode === 'tasks'
+				? 'Fyll i minst en namngiven deluppgift med giltiga O-, M- och P-värden så visas resultatet här.'
+				: 'Lägg till användare eller importera en länk. Fyll i giltiga estimat för alla användare så visas gruppens resultat här.';
 	clearActionStatus();
 	render();
+	if (mode === 'grouptasks') enterpriseGag.show();
 }
 
 function currentShareUrl(): string | null {
+	if (mode === 'grouptasks') {
+		const validation = validateGroupTaskPertForm(collectGroupInputs(), groupHoursInput.value);
+		return validation.valid
+			? buildGroupTaskPertShareUrl(
+				window.location.origin + window.location.pathname,
+				validation.groups, validation.result.hoursPerDay,
+			)
+			: null;
+	}
 	if (mode === 'participants') {
 		const validation = validatePertForm(
 			collectParticipantInputs(getRows(participantRowsList)),
@@ -571,6 +906,11 @@ function currentShareUrl(): string | null {
 function initFromUrl(): void {
 	const parsed = parsePertSearchParams(window.location.search);
 	meetingInput.value = parsed.meetingHoursPerPerson;
+	groupHoursInput.value = parsed.mode === 'grouptasks' ? parsed.hoursPerDay : String(DEFAULT_HOURS_PER_DAY);
+	if (parsed.errors.length) {
+		urlStatus.hidden = false;
+		urlStatus.textContent = `${parsed.errors.join(' ')} Kontrollera den ursprungliga länken.`;
+	}
 
 	if (parsed.rows.length > 0) {
 		for (const row of parsed.rows) addParticipantRow(row);
@@ -584,11 +924,18 @@ function initFromUrl(): void {
 		addTaskRow();
 	}
 
+	if (parsed.groups.length && parsed.errors.length === 0) {
+		for (const group of parsed.groups) addTaskGroup(group);
+	} else {
+		addTaskGroup();
+	}
+
 	const selectedMode = modeInputs.find((input) => input.value === parsed.mode);
 	if (selectedMode) selectedMode.checked = true;
 	mode = parsed.mode;
 	participantForm.hidden = mode !== 'participants';
 	taskForm.hidden = mode !== 'tasks';
+	groupTaskForm.hidden = mode !== 'grouptasks';
 }
 
 function downloadBlob(blob: Blob): void {
@@ -654,17 +1001,17 @@ addTaskButton.addEventListener('click', () => {
 });
 
 cancelRemoveTaskButton.addEventListener('click', () => {
-	const removeButton = pendingTaskRemoval?.removeButton;
-	pendingTaskRemoval = null;
+	const removeButton = pendingRemoval?.trigger;
+	pendingRemoval = null;
 	removeTaskDialog.close();
 	removeButton?.focus();
 });
 
 confirmRemoveTaskButton.addEventListener('click', () => {
-	const row = pendingTaskRemoval;
-	pendingTaskRemoval = null;
+	const removal = pendingRemoval;
+	pendingRemoval = null;
 	removeTaskDialog.close();
-	if (row) removeRow(row, taskRowsList, 'Deluppgift');
+	removal?.confirm();
 });
 
 removeTaskDialog.addEventListener('cancel', (event) => {
@@ -675,6 +1022,31 @@ removeTaskDialog.addEventListener('cancel', (event) => {
 meetingInput.addEventListener('input', () => {
 	clearActionStatus();
 	render();
+});
+
+addTaskGroupButton.addEventListener('click', () => {
+	addTaskGroup(undefined, true);
+	clearActionStatus();
+	render();
+});
+
+groupHoursInput.addEventListener('input', () => {
+	clearActionStatus();
+	render();
+});
+
+groupImportButton.addEventListener('click', importTaskGroups);
+groupTaskForm.addEventListener('submit', (event) => event.preventDefault());
+for (const input of [groupImportUrl, groupImportName]) {
+	input.addEventListener('keydown', (event) => {
+		if (event.key !== 'Enter') return;
+		event.preventDefault();
+		importTaskGroups();
+	});
+}
+groupImportUrl.addEventListener('input', () => {
+	groupImportUrl.removeAttribute('aria-invalid');
+	groupImportStatus.textContent = '';
 });
 
 shareButton.addEventListener('click', async () => {

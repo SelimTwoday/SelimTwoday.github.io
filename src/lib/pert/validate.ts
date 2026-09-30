@@ -1,7 +1,9 @@
-import { calculatePert, calculateTaskPert } from './calculate';
+import { calculateGroupTaskPert, calculatePert, calculateTaskPert } from './calculate';
 import { parseSwedishNumber } from './format';
+import { DEFAULT_HOURS_PER_DAY } from './types';
 import type {
 	FieldError,
+	GroupTaskPertValidationResult,
 	ParticipantEstimate,
 	ParticipantRowInput,
 	PertSettings,
@@ -10,6 +12,8 @@ import type {
 	TaskEstimate,
 	TaskPertValidationResult,
 	TaskRowInput,
+	TaskGroupInput,
+	TaskGroupEstimate,
 } from './types';
 
 function parseField(
@@ -157,10 +161,64 @@ export function validateTaskPertForm(
 		return { valid: false, errors, tasks: null, result: null };
 	}
 
+	const result = calculateTaskPert(tasks, hoursPerDay);
+	if (![result.expectedHours, result.variance, result.workdays].every(Number.isFinite)) {
+		return {
+			valid: false,
+			errors: [{ field: 'tasks', code: 'not-a-number', message: 'Värdena är för stora för att beräkna ett giltigt estimat.' }],
+			tasks: null,
+			result: null,
+		};
+	}
 	return {
 		valid: true,
 		errors: [],
 		tasks,
-		result: calculateTaskPert(tasks, hoursPerDay),
+		result,
 	};
+}
+
+export function validateGroupTaskPertForm(
+	inputs: TaskGroupInput[],
+	hoursPerDayInput: string,
+): GroupTaskPertValidationResult {
+	const errors: FieldError[] = [];
+	const groups: TaskGroupEstimate[] = [];
+	if (inputs.length === 0) {
+		errors.push({ field: 'groups', code: 'no-participants', message: 'Minst en användare krävs.' });
+	}
+
+	inputs.forEach((input, index) => {
+		const name = input.name.trim();
+		if (!name) {
+			errors.push({
+				field: `group-${index}-name`,
+				code: 'required',
+				message: 'Ange ett namn för användaren.',
+			});
+		}
+		const validation = validateTaskPertForm(input.tasks, String(DEFAULT_HOURS_PER_DAY));
+		if (!validation.valid) {
+			errors.push(...validation.errors.map((error) => ({
+				...error,
+				field: `group-${index}-${error.field}`,
+			})));
+		} else if (name) {
+			groups.push({ name, tasks: validation.tasks });
+		}
+	});
+	const hoursPerDay = parseField('settings-hoursPerDay', hoursPerDayInput, errors, { allowZero: false });
+	if (errors.length > 0 || hoursPerDay === null) {
+		return { valid: false, errors, groups: null, result: null };
+	}
+	const result = calculateGroupTaskPert(groups, hoursPerDay);
+	if (![result.expectedHours, result.variance, result.workdays].every(Number.isFinite)) {
+		return {
+			valid: false,
+			errors: [{ field: 'groups', code: 'not-a-number', message: 'Värdena är för stora för att beräkna ett giltigt gruppestimat.' }],
+			groups: null,
+			result: null,
+		};
+	}
+	return { valid: true, errors: [], groups, result };
 }

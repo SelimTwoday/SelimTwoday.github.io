@@ -13,7 +13,7 @@ eventuell interaktivitet körs helt i webbläsaren.
 ## Innehåll
 
 - [`/`](src/pages/index.astro) — visitkort/intro + ett responsivt rutnät med verktyg.
-- [`/verktyg/pert/`](src/pages/verktyg/pert/index.astro) — PERT-kalkylator för gruppestimat.
+- [`/verktyg/pert/`](src/pages/verktyg/pert/index.astro) — gruppestimat, PERT Pro och PERT Pro Enterprise.
 - [`/verktyg/kodfilosofi/`](src/pages/verktyg/kodfilosofi/index.astro) — samlad kodfilosofi i stigande svårighetsgrad.
 
 ## Kom igång
@@ -50,6 +50,57 @@ npm run build
 
 Bygger den statiska sajten till `./dist/`. `npm run preview` serverar den
 byggda sajten lokalt för en sista koll innan deploy.
+
+## PERT Pro Enterprise
+
+Tredje läget (`?mode=grouptasks`) jämför namngivna användares uppskattningar
+av **samma projektomfattning**. Varje användare kan ha sin egen uppdelning
+i deluppgifter: sju mindre deluppgifter och fyra större deluppgifter går
+att jämföra utan att någon får större vikt på grund av antalet rader.
+
+Inom varje användare summeras deluppgifternas PERT-tider och varianser,
+precis som i PERT Pro. Gruppens förväntade tid är sedan medelvärdet av
+användarnas totaler, **inte summan av alla användares arbete**. Gruppens
+varians är medelvärdet av användarnas PERT-varianser plus
+populationsvariansen mellan deras förväntade totaler. Båda komponenterna,
+användarnas avvikelser och varningar för osäkerhet/oenighet visas separat.
+Samma varningströsklar som i gruppestimat används: över 30 % relativ
+total standardavvikelse respektive över 40 % relativ spridning mellan
+användarnas förväntade totaler.
+
+Intervall för en, två och tre standardavvikelser använder en
+**normalapproximation**; procentsatserna är inte garanterade och är inte
+konfidensintervall för medelvärdet. Fler användare minskar inte automatiskt
+projektets osäkerhet. Negativa nedre gränser begränsas till noll. Modellen
+antar oberoende deluppgifter inom varje användare; gemensamma risker och
+olika detaljnivåer kan påverka uppskattad osäkerhet. Arbetsdagens längd är
+inställbar, och mötestid ingår inte i detta läge.
+
+Användare matas in lokalt utan konton eller backend. Det går att återanvända
+en användares deluppgiftstitlar för en ny användare, med tomma O/M/P-värden.
+Importera en `mode=tasks`-länk som en ny användare eller en
+`mode=grouptasks`-länk som flera nya användare. Importen läser endast URL:ens
+data, hämtar aldrig adressen och avvisar hela importen om någon del är
+ogiltig. Befintliga estimat bevaras; bara ett orört startkort ersätts.
+Tider importeras i timmar och befintlig arbetsdagsinställning behålls
+(ett orört startkort tar över länkens inställning).
+
+Giltiga Enterprise-estimat delas som upprepade `g=`-parametrar med JSON
+`[användarnamn, [[titel, O, M, P], …]]`; `h=` anger en icke-standardiserad
+arbetsdag. Kopiera länk, PNG och bild + länk fungerar i alla tre lägen.
+Namnen och estimaten ligger i delningslänken – dela därför inte länkar
+med uppgifter som inte bör spridas. Som i PERT Pro kan endast ett
+fullständigt, giltigt estimat delas; ofullständiga formulär är inte sparade
+utkast och kan försvinna vid omladdning.
+
+Första gången Enterprise öppnas visas en skämtsam köpmodal. Båda
+köpknapparna sparar `pert-pro-enterprise-gag-dismissed=1` i `localStorage`
+och visar en animerad **låtsasdebitering** för en användare: 12 månader
+à 4 990 kr, totalt 59 880 kr. Inga betalningar, konton eller nätverksanrop
+ingår i skämtet. Flaggan gäller den aktuella webbläsaren och webbplatsens
+origin; radera den för att visa skämtet igen. Escape stänger modalen utan
+att sätta flaggan. Reducerad rörelse visar kvittot direkt; blockerad
+lagring ger en tydlig varning om att engångsflaggan inte kan sparas.
 
 ## Struktur och designbeslut
 

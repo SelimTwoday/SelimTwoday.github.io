@@ -1,18 +1,19 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
+import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 ---
 
 <BaseLayout
 	title="PERT-kalkylator"
-	description="Räkna ut ett PERT-tidsestimat för en grupp utifrån optimistiska, sannolika och pessimistiska gissningar."
+	description="Räkna ut PERT-estimat för grupper och deluppgifter, eller jämför användarnas projektuppskattningar med PERT Pro Enterprise."
 	showBackLink
 >
 	<div class="container page">
 		<header class="page__header">
 			<h1>PERT-kalkylator</h1>
 			<p class="page__lead">
-				Estimera tillsammans som tidigare, eller byt till PERT Pro för att räkna ihop 
-				namngivna deluppgifter och få ett statistiskt konfidensintervall.
+				Estimera tillsammans, bryt ned arbetet med PERT Pro eller jämför flera
+				användares deluppgifter med PERT Pro Enterprise.
 			</p>
 		</header>
 
@@ -31,7 +32,15 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 					<small>Summera deluppgifter och osäkerhet</small>
 				</span>
 			</label>
+			<label class="mode-switch__option">
+				<input type="radio" name="pert-mode" value="grouptasks" />
+				<span>
+					<span class="mode-switch__name"><strong>PERT Pro</strong> Enterprise</span>
+					<small>Egna deluppgifter, gemensamt estimat</small>
+				</span>
+			</label>
 		</fieldset>
+		<p id="pert-url-status" class="status-message" data-tone="error" role="alert" hidden></p>
 
 		<div class="pert-workspace">
 			<div class="pert-workspace__form">
@@ -124,7 +133,80 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 					</div>
 				</form>
 
+				<form id="group-task-form" class="pert-form" novalidate hidden>
+					<div class="enterprise-intro">
+						<h2>Gruppens deluppgifter</h2>
+						<p class="participants__description">
+							Alla uppskattar samma projektomfattning. Varje användare väger lika,
+							oavsett antal deluppgifter. Användarnas totaler jämförs – de summeras inte.
+						</p>
+					</div>
+					<section class="group-import card" aria-labelledby="group-import-heading">
+						<h3 id="group-import-heading">Importera ett estimat</h3>
+						<p class="participants__description">
+							En PERT Pro-länk läggs till som en användare. En Enterprise-länk
+							lägger till alla sina användare utan att skriva över befintliga estimat.
+						</p>
+						<label class="field">
+							<span>PERT-länk</span>
+							<input id="group-import-url" type="url" placeholder="https://…?mode=tasks…" autocomplete="off" aria-describedby="group-import-status" />
+						</label>
+						<div class="group-import__actions">
+							<label class="field">
+								<span>Användarnamn för PERT Pro-länk (valfritt)</span>
+								<input id="group-import-name" type="text" placeholder="T.ex. Anna" autocomplete="off" />
+							</label>
+							<button id="group-import-button" type="button" class="button button-secondary">Importera</button>
+						</div>
+						<p id="group-import-status" class="action-status" role="status" aria-live="polite"></p>
+					</section>
+					<div class="participants__header">
+						<h3>Användare <span id="group-user-count" class="participants__count"></span></h3>
+					</div>
+					<div id="task-groups" class="task-groups"></div>
+					<button id="add-task-group-button" type="button" class="button button-secondary task-rows__add">
+						+ Lägg till användare
+					</button>
+					<div class="settings card group-settings">
+						<label class="field">
+							<span>Timmar per arbetsdag</span>
+							<input id="group-hours-per-day" type="text" inputmode="decimal" value="8" autocomplete="off" aria-describedby="group-hours-error" />
+							<p id="group-hours-error" class="field__error" aria-live="polite"></p>
+						</label>
+					</div>
+				</form>
+
+				<template id="task-group-template">
+					<section class="task-group card">
+						<div class="task-group__header">
+							<label class="field task-group__name-field">
+								<span>Användare</span>
+								<input type="text" class="task-group__name" autocomplete="off" />
+							</label>
+							<button type="button" class="task-group__remove participant-row__remove" aria-label="Ta bort användare" title="Ta bort användare">
+								<span aria-hidden="true">✕</span>
+							</button>
+						</div>
+						<p class="task-group__error field__error" aria-live="polite"></p>
+						<p class="task-group__total"></p>
+						<details class="task-group__details" open>
+							<summary>Deluppgifter <span class="task-group__count"></span></summary>
+							<ul class="participant-rows task-group__rows"></ul>
+							<button type="button" class="button button-secondary task-rows__add task-group__add-task">
+								+ Lägg till deluppgift
+							</button>
+						</details>
+						<button type="button" class="task-group__reuse button button-secondary">
+							Återanvänd deluppgifter för ny användare
+						</button>
+					</section>
+				</template>
+
 				<div id="pert-errors" class="status-message" data-tone="error" role="alert" hidden></div>
+				<p id="task-reorder-hint" class="visually-hidden">
+					Dra kortets yta för att ändra ordning. Med kortet i fokus kan du också använda Alt och upp- eller nedpil.
+				</p>
+				<p id="task-reorder-status" class="visually-hidden" role="status" aria-live="polite"></p>
 
 				<template id="row-template">
 					<li class="participant-row">
@@ -218,7 +300,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 					</li>
 				</template>
 
-				<dialog id="remove-task-dialog" class="confirmation-dialog" aria-labelledby="remove-task-title">
+				<dialog id="remove-task-dialog" class="confirmation-dialog" aria-labelledby="remove-task-title" aria-describedby="remove-task-copy">
 					<div class="confirmation-dialog__content">
 						<h2 id="remove-task-title">Ta bort deluppgift?</h2>
 						<p id="remove-task-copy">
@@ -234,6 +316,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 						</div>
 					</div>
 				</dialog>
+				<EnterpriseGag />
 
 			</div>
 
@@ -326,6 +409,82 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 						<div class="task-breakdown" id="task-breakdown"></div>
 						<p class="result-note" id="task-note"></p>
 					</div>
+
+					<div id="group-task-result" hidden>
+						<p class="result-panel__subtitle">
+							Medelvärdet av användarnas totalestimat. Varje användare har samma vikt.
+						</p>
+						<div class="result-averages">
+							<div class="result-box">
+								<div class="result-box__label">Optimistisk medeltotal</div>
+								<div class="result-box__value" id="group-average-o">–</div>
+							</div>
+							<div class="result-box">
+								<div class="result-box__label">Mest sannolik medeltotal</div>
+								<div class="result-box__value" id="group-average-m">–</div>
+							</div>
+							<div class="result-box">
+								<div class="result-box__label">Pessimistisk medeltotal</div>
+								<div class="result-box__value" id="group-average-p">–</div>
+							</div>
+						</div>
+						<div class="result-final">
+							<div class="result-final__item result-final__item--highlight">
+								<div class="result-final__label">Gruppens förväntade projekttid</div>
+								<div class="result-final__value" id="group-expected-hours">–</div>
+								<div class="result-final__sub" id="group-expected-days"></div>
+							</div>
+							<div class="result-final__item result-final__item--wide">
+								<div class="result-final__label">Kombinerad standardavvikelse</div>
+								<div class="result-final__value" id="group-standard-deviation">–</div>
+								<div class="result-final__sub">Osäkerhet i deluppgifter och skillnader mellan användare</div>
+							</div>
+							<div class="result-final__item">
+								<div class="result-final__label">Inom användarna</div>
+								<div class="result-final__value" id="group-within-deviation">–</div>
+								<div class="result-final__sub">Roten ur medelvärdet av PERT-varianserna</div>
+							</div>
+							<div class="result-final__item">
+								<div class="result-final__label">Mellan användarna</div>
+								<div class="result-final__value" id="group-between-deviation">–</div>
+								<div class="result-final__sub" id="group-disagreement"></div>
+							</div>
+						</div>
+						<div class="result-warnings group-result-warnings" aria-live="polite">
+							<p id="group-disagreement-warning" class="status-message result-warning" data-tone="warning" hidden>
+								Stor oenighet mellan användarnas totaler. Kontrollera att alla uppskattar samma omfattning och diskutera skillnaderna.
+							</p>
+							<p id="group-uncertainty-warning" class="status-message result-warning" data-tone="warning" hidden>
+								Stor osäkerhet i gruppestimatet. Granska risker, beroenden och deluppgifternas antaganden.
+							</p>
+						</div>
+						<h3 class="result-section-heading">Ungefärliga osäkerhetsintervall</h3>
+						<div id="group-confidence-list" class="confidence-list"></div>
+						<p class="result-note">
+							Intervallen använder en normalapproximation, inte ett konfidensintervall för
+							medelvärdet. Procentsatserna är riktmärken, inte garantier, särskilt vid få
+							användare eller stor oenighet. Negativa nedre gränser begränsas till noll.
+						</p>
+						<h3 class="result-section-heading">Användarnas estimat och avvikelser</h3>
+						<div id="group-comparison" class="group-comparison"></div>
+						<details class="group-model-note">
+							<summary>Så räknar Enterprise</summary>
+							<p class="result-note">
+								Först summeras förväntade tider och varianser inom varje användares
+								deluppgifter. Gruppens tid är medelvärdet av användarnas totaler.
+								Gruppens varians är medelvärdet av deras PERT-varianser plus
+								populationsvariansen mellan totalerna. Fler användare minskar inte
+								automatiskt projektets osäkerhet.
+							</p>
+							<p class="result-note">
+								Modellen antar oberoende deluppgifter inom varje användare.
+								Gemensamma risker och olika detaljnivåer kan påverka osäkerheten.
+								Det är projekttid i arbetstimmar, inte kalendertid eller summan av
+								alla användares arbete. Mötestid ingår inte.
+							</p>
+						</details>
+						<p id="group-result-note" class="result-note"></p>
+					</div>
 				</section>
 				
 				<div class="pert-actions">
@@ -372,9 +531,9 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 	.mode-switch {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 0.5rem;
-		width: min(100%, 38rem);
+		width: min(100%, 56rem);
 		padding: 0.35rem;
 		margin-bottom: 2rem;
 		border: 1px solid var(--color-border);
@@ -410,6 +569,10 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		line-height: 1.35;
 	}
 
+	.mode-switch__name {
+		font-weight: 500;
+	}
+
 	.mode-switch__option input:checked + span {
 		color: var(--color-text);
 		border-color: var(--color-primary);
@@ -431,6 +594,10 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		min-width: 0;
 	}
 
+	.pert-workspace[data-mode='grouptasks'] {
+		grid-template-columns: minmax(0, 0.8fr) minmax(22rem, 1fr);
+	}
+
 	.pert-workspace__result {
 		position: sticky;
 		top: 1.5rem;
@@ -438,6 +605,10 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 	@media (max-width: 900px) {
 		.pert-workspace {
+			grid-template-columns: 1fr;
+		}
+
+		.pert-workspace[data-mode='grouptasks'] {
 			grid-template-columns: 1fr;
 		}
 
@@ -472,6 +643,8 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 	}
 
 	.field > input {
+		min-width: 0;
+		width: 100%;
 		font: inherit;
 		font-size: 0.95rem;
 		font-weight: 500;
@@ -729,6 +902,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 	.participant-rows > .task-row:first-child {
 		padding-top: 0.75rem;
+		border-top: 1px solid var(--color-border);
 	}
 
 	.participant-rows > .task-row:last-child {
@@ -737,6 +911,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 
 	.task-row__title-field > input {
 		min-height: 2rem;
+		height: 2rem;
 		padding: 0.4rem 0.65rem;
 		font-size: 0.8rem;
 		font-weight: 700;
@@ -778,9 +953,12 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		cursor: grabbing;
 	}
 
-	.task-row input,
+	.task-row input {
+		cursor: text;
+	}
+
 	.task-row button {
-		cursor: auto;
+		cursor: pointer;
 	}
 
 	.task-row .participant-row__fields {
@@ -798,6 +976,11 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		opacity: 0.45;
 		border-color: var(--color-primary);
 		user-select: none;
+	}
+
+	.task-row:focus-visible {
+		outline: 2px solid var(--color-primary);
+		outline-offset: 3px;
 	}
 
 	.task-rows__add {
@@ -846,6 +1029,176 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 		color: white;
 		background: #b3261e;
 		border-color: #b3261e;
+	}
+
+	.enterprise-intro {
+		margin-bottom: 1.25rem;
+	}
+
+	.enterprise-intro h2 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
+
+	.group-import {
+		padding: 1rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.group-import h3 {
+		margin: 0;
+		font-size: 1rem;
+	}
+
+	.group-import > .field {
+		margin-top: 0.9rem;
+	}
+
+	.group-import__actions {
+		display: flex;
+		align-items: end;
+		gap: 0.75rem;
+		margin-top: 0.75rem;
+	}
+
+	.group-import__actions .field {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.group-import__actions .button {
+		flex-shrink: 0;
+	}
+
+	#group-import-status[data-tone='error'] {
+		color: var(--color-danger);
+	}
+
+	#group-import-status[data-tone='success'] {
+		color: var(--color-success);
+	}
+
+	.task-groups {
+		display: grid;
+		gap: 1.25rem;
+	}
+
+	.task-group {
+		min-width: 0;
+		padding: 0.75rem;
+	}
+
+	.task-group__header {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 2rem;
+		align-items: end;
+		gap: 0.75rem;
+	}
+
+	.task-group__name-field {
+		min-width: 0;
+	}
+
+	.task-group__name-field > input {
+		font-weight: 700;
+	}
+
+	.task-group__total {
+		margin: 0.75rem 0;
+		font-size: 0.85rem;
+		color: var(--color-text-muted);
+	}
+
+	.task-group__details > summary,
+	.group-model-note > summary {
+		padding-block: 0.5rem;
+		font-weight: 700;
+		font-size: 0.9rem;
+		cursor: pointer;
+	}
+
+	.task-group__rows {
+		margin-top: 0.75rem;
+	}
+
+	.task-group__rows > .task-row,
+	.task-group__rows > .task-row:first-child,
+	.task-group__rows > .task-row:last-child {
+		margin: 0;
+		padding: 1rem 0.75rem;
+		background: transparent;
+		border: 0;
+		border-radius: 0;
+		box-shadow: none;
+	}
+
+	.task-group__rows > .task-row + .task-row {
+		border-top: 1px solid var(--color-border);
+	}
+
+	#add-task-group-button {
+		margin-top: 1.25rem;
+	}
+
+	.task-group__reuse {
+		width: 100%;
+		margin-top: 0.75rem;
+		font-size: 0.8rem;
+	}
+
+	.group-settings {
+		margin-top: 1.25rem;
+	}
+
+	.group-result-warnings {
+		margin-top: 1rem;
+	}
+
+	.group-comparison {
+		display: grid;
+		gap: 0.75rem;
+	}
+
+	.group-comparison :global(.group-comparison__person) {
+		padding: 0.75rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-bg-elevated-2);
+	}
+
+	.group-comparison :global(summary) {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 0.25rem 0.75rem;
+		cursor: pointer;
+	}
+
+	.group-comparison :global(summary strong) {
+		overflow-wrap: anywhere;
+	}
+
+	.group-comparison :global(summary strong)::before {
+		content: '+ ';
+		color: var(--color-primary);
+	}
+
+	.group-comparison :global(details[open] summary strong)::before {
+		content: '− ';
+	}
+
+	.group-comparison :global(.group-comparison__total) {
+		font-weight: 800;
+	}
+
+	.group-comparison :global(.group-comparison__meta) {
+		grid-column: 1 / -1;
+		margin: 0;
+		font-size: 0.8rem;
+		color: var(--color-text-muted);
+	}
+
+	.group-model-note {
+		margin-top: 1.25rem;
 	}
 
 	.pert-actions {
