@@ -72,7 +72,8 @@ Medelvärdesrutorna är märkta **AVG**. Intervallen visas under
 **Konfidensintervall**, med samma procentetiketter och layout som i PERT Pro.
 Formulär- och resultatkolumnerna har samma bredder som i PERT Pro.
 Lägesväljaren fyller hela innehållsbredden.
-PERT Pro har ingen extra padding runt deluppgiftslistan.
+PERT Pro har ingen extra padding runt deluppgiftslistan; titeln
+**Deluppgifter** har samma stil som Enterprises **Gruppens deluppgifter**.
 I användarnas utfällbara deluppgiftslistor visas titlar och tider i separata
 kolumner; långa titlar radbryts medan tiden hålls på en rad.
 
