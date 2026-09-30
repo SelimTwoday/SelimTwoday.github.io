@@ -55,6 +55,8 @@ const addTaskGroupButton = document.getElementById('add-task-group-button') as H
 const groupUserCount = document.getElementById('group-user-count') as HTMLElement;
 const groupHoursInput = document.getElementById('group-hours-per-day') as HTMLInputElement;
 const groupHoursError = document.getElementById('group-hours-error') as HTMLParagraphElement;
+const groupImportToggle = document.getElementById('group-import-toggle') as HTMLButtonElement;
+const groupImportPanel = document.getElementById('group-import-panel') as HTMLElement;
 const groupImportUrl = document.getElementById('group-import-url') as HTMLInputElement;
 const groupImportName = document.getElementById('group-import-name') as HTMLInputElement;
 const groupImportButton = document.getElementById('group-import-button') as HTMLButtonElement;
@@ -497,7 +499,21 @@ function addTaskGroup(values?: TaskGroupInput, focus = false): void {
 	}
 }
 
+function setImportPanelOpen(open: boolean): void {
+	groupImportPanel.hidden = !open;
+	groupImportToggle.hidden = open;
+	groupImportToggle.setAttribute('aria-expanded', String(open));
+	(open ? groupImportUrl : groupImportToggle).focus();
+}
+
 function importTaskGroups(): void {
+	if (!groupImportUrl.value.trim() && !groupImportName.value.trim()) {
+		groupImportUrl.removeAttribute('aria-invalid');
+		groupImportStatus.textContent = '';
+		setImportPanelOpen(false);
+		return;
+	}
+
 	const existing = getTaskGroups();
 	const placeholder = existing.length === 1 &&
 		existing[0].nameInput.dataset.generatedName === 'true' &&
@@ -528,6 +544,7 @@ function importTaskGroups(): void {
 	if (imported.hoursPerDay !== groupHoursInput.value) {
 		groupImportStatus.textContent += ` Tiderna importeras i timmar; gruppens arbetsdag (${groupHoursInput.value} h) används i stället för länkens (${imported.hoursPerDay} h).`;
 	}
+	setImportPanelOpen(false);
 }
 
 function collectSettingsInput(): PertSettingsInput {
@@ -1034,6 +1051,10 @@ groupHoursInput.addEventListener('input', () => {
 	render();
 });
 
+groupImportToggle.addEventListener('click', () => {
+	groupImportStatus.textContent = '';
+	setImportPanelOpen(true);
+});
 groupImportButton.addEventListener('click', importTaskGroups);
 groupTaskForm.addEventListener('submit', (event) => event.preventDefault());
 for (const input of [groupImportUrl, groupImportName]) {

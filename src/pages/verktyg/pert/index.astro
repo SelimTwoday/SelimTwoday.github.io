@@ -6,7 +6,6 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 <BaseLayout
 	title="PERT-kalkylator"
 	description="Räkna ut PERT-estimat för grupper och deluppgifter, eller jämför användarnas projektuppskattningar med PERT Pro Enterprise."
-	showBackLink
 >
 	<div class="container page">
 		<header class="page__header">
@@ -141,25 +140,30 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 							oavsett antal deluppgifter. Användarnas totaler jämförs – de summeras inte.
 						</p>
 					</div>
-					<section class="group-import card" aria-labelledby="group-import-heading">
-						<h3 id="group-import-heading">Importera ett estimat</h3>
-						<p class="participants__description">
-							En PERT Pro-länk läggs till som en användare. En Enterprise-länk
-							lägger till alla sina användare utan att skriva över befintliga estimat.
-						</p>
-						<label class="field">
-							<span>PERT-länk</span>
-							<input id="group-import-url" type="url" placeholder="https://…?mode=tasks…" autocomplete="off" aria-describedby="group-import-status" />
-						</label>
-						<div class="group-import__actions">
+					<div class="group-import">
+						<button id="group-import-toggle" type="button" class="button button-secondary task-rows__add group-import__toggle" aria-expanded="false" aria-controls="group-import-panel">
+							Importera ett estimat
+						</button>
+						<section id="group-import-panel" class="group-import__panel card" aria-labelledby="group-import-heading" hidden>
+							<h3 id="group-import-heading">Importera ett estimat</h3>
+							<p class="participants__description">
+								En PERT Pro-länk läggs till som en användare. En Enterprise-länk
+								lägger till alla sina användare utan att skriva över befintliga estimat.
+							</p>
 							<label class="field">
-								<span>Användarnamn för PERT Pro-länk (valfritt)</span>
-								<input id="group-import-name" type="text" placeholder="T.ex. Anna" autocomplete="off" />
+								<span>PERT-länk</span>
+								<input id="group-import-url" type="url" placeholder="https://…?mode=tasks…" autocomplete="off" aria-describedby="group-import-status" />
 							</label>
-							<button id="group-import-button" type="button" class="button button-secondary">Importera</button>
-						</div>
+							<div class="group-import__actions">
+								<label class="field">
+									<span>Användarnamn för PERT Pro-länk (valfritt)</span>
+									<input id="group-import-name" type="text" placeholder="T.ex. Anna" autocomplete="off" />
+								</label>
+								<button id="group-import-button" type="button" class="button button-secondary">Importera</button>
+							</div>
+						</section>
 						<p id="group-import-status" class="action-status" role="status" aria-live="polite"></p>
-					</section>
+					</div>
 					<div class="participants__header">
 						<h3>Användare <span id="group-user-count" class="participants__count"></span></h3>
 					</div>
@@ -533,9 +537,10 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 0.5rem;
-		width: min(100%, 56rem);
+		width: 100%;
+		min-width: 0;
 		padding: 0.35rem;
-		margin-bottom: 2rem;
+		margin: 0 0 2rem;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
 		background: var(--color-bg-elevated);
@@ -719,6 +724,10 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 		margin-bottom: 1.25rem;
 	}
 
+	#task-form .participants {
+		padding: 0;
+	}
+
 	.pert-estimate-reminder {
 		padding-inline: 1.25rem;
 		margin: 0 0 1.25rem;
@@ -733,7 +742,6 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 		justify-content: space-between;
 		flex-wrap: wrap;
 		gap: 0.75rem;
-		margin-bottom: 0.9rem;
 	}
 
 	.participants__heading {
@@ -1033,8 +1041,15 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 	}
 
 	.group-import {
-		padding: 1rem;
 		margin-bottom: 1.5rem;
+	}
+
+	.group-import__toggle[hidden] {
+		display: none;
+	}
+
+	.group-import__panel {
+		padding: 1rem;
 	}
 
 	.group-import h3 {
@@ -1042,7 +1057,7 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 		font-size: 1rem;
 	}
 
-	.group-import > .field {
+	.group-import__panel > .field {
 		margin-top: 0.9rem;
 	}
 
@@ -1068,6 +1083,10 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 
 	#group-import-status[data-tone='success'] {
 		color: var(--color-success);
+	}
+
+	#group-import-status:empty {
+		display: none;
 	}
 
 	.task-groups {
@@ -1107,10 +1126,6 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 		font-weight: 700;
 		font-size: 0.9rem;
 		cursor: pointer;
-	}
-
-	.task-group__rows {
-		margin-top: 0.75rem;
 	}
 
 	.task-group__rows > .task-row,

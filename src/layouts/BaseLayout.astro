@@ -6,11 +6,9 @@ import '../styles/global.css';
 export interface Props {
 	title: string;
 	description: string;
-	/** Shows a "back to home" link in the header, useful on tool subpages. */
-	showBackLink?: boolean;
 }
 
-const { title, description, showBackLink = false } = Astro.props;
+const { title, description } = Astro.props;
 const pageTitle = title === 'Selim Hjorthall' ? title : `${title} · Selim Hjorthall`;
 ---
 
@@ -28,37 +26,8 @@ const pageTitle = title === 'Selim Hjorthall' ? title : `${title} · Selim Hjort
 		<a class="skip-link" href="#main-content">Hoppa till innehåll</a>
 		<Header />
 		<main id="main-content">
-			{
-				showBackLink && (
-					<div class="container back-link-row">
-						<a class="back-link" href="/">
-							<span aria-hidden="true">←</span> Tillbaka till startsidan
-						</a>
-					</div>
-				)
-			}
 			<slot />
 		</main>
 		<Footer />
 	</body>
 </html>
-
-<style>
-	.back-link-row {
-		padding-top: 1.25rem;
-	}
-
-	.back-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-		color: var(--color-text-muted);
-		text-decoration: none;
-		font-weight: 600;
-		font-size: 0.9rem;
-	}
-
-	.back-link:hover {
-		color: var(--color-primary);
-	}
-</style>

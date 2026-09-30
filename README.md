@@ -71,6 +71,8 @@ användarnas förväntade totaler.
 Medelvärdesrutorna är märkta **AVG**. Intervallen visas under
 **Konfidensintervall**, med samma procentetiketter och layout som i PERT Pro.
 Formulär- och resultatkolumnerna har samma bredder som i PERT Pro.
+Lägesväljaren fyller hela innehållsbredden.
+PERT Pro har ingen extra padding runt deluppgiftslistan.
 I användarnas utfällbara deluppgiftslistor visas titlar och tider i separata
 kolumner; långa titlar radbryts medan tiden hålls på en rad.
 
@@ -88,6 +90,10 @@ Importera en `mode=tasks`-länk som en ny användare eller en
 `mode=grouptasks`-länk som flera nya användare. Importen läser endast URL:ens
 data, hämtar aldrig adressen och avvisar hela importen om någon del är
 ogiltig. Befintliga estimat bevaras; bara ett orört startkort ersätts.
+Knappen **Importera ett estimat** öppnar importrutan. Efter lyckad import,
+eller när **Importera** klickas med båda fälten tomma, återgår rutan till
+knappen. Ogiltiga länkar lämnar rutan öppen med ett felmeddelande;
+bekräftelsen efter lyckad import visas även när rutan har stängts.
 Tider importeras i timmar och befintlig arbetsdagsinställning behålls
 (ett orört startkort tar över länkens inställning).
 
@@ -136,6 +142,8 @@ Viktiga val:
   validering, dela länk, PNG-export) är skriven i vanlig TypeScript som
   körs som en modul-`<script>`. Det håller beroenden minimala och undviker
   hydreringskostnad för en såpass liten mängd interaktivitet.
+- **Kompakt verktygsnavigation.** Verktygssidorna har ingen separat
+  tillbaka-rad; länken **SelimTwoday** i sidhuvudet leder till startsidan.
 - **Design tokens via CSS custom properties.** Mörkt, nedtonat tema är
   standard; ett mjukt, icke-bländande ljust tema aktiveras automatiskt via
   `prefers-color-scheme: light`. Fokusringar, semantisk HTML och tillräcklig
