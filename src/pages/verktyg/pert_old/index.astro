@@ -4,10 +4,15 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 ---
 
 <BaseLayout
-	title="PERT-kalkylator"
+	title="PERT-kalkylator (äldre version)"
+	noindex
+	canonical="/verktyg/pert/"
 	description="Räkna ut PERT-estimat för grupper och deluppgifter, eller jämför användarnas projektuppskattningar med PERT Pro Enterprise."
 >
 	<div class="container page">
+		<p class="legacy-note">
+			Äldre version av PERT-kalkylatorn. <a href="/verktyg/pert/">Öppna den nya versionen</a>.
+		</p>
 		<header class="page__header">
 			<h1>PERT-kalkylator</h1>
 			<p class="page__lead">
@@ -515,6 +520,12 @@ import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 <style>
 	.page {
 		padding-block: 2.5rem 4rem;
+	}
+
+	.legacy-note {
+		margin: 0 0 1rem;
+		font-size: 0.9rem;
+		color: var(--color-text-muted);
 	}
 
 	.page__header {

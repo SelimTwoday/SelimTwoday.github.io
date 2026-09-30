@@ -6,9 +6,11 @@ import '../styles/global.css';
 export interface Props {
 	title: string;
 	description: string;
+	noindex?: boolean;
+	canonical?: string;
 }
 
-const { title, description } = Astro.props;
+const { title, description, noindex = false, canonical } = Astro.props;
 const pageTitle = title === 'Selim Hjorthall' ? title : `${title} · Selim Hjorthall`;
 ---
 
@@ -21,6 +23,9 @@ const pageTitle = title === 'Selim Hjorthall' ? title : `${title} · Selim Hjort
 		<title>{pageTitle}</title>
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="color-scheme" content="dark light" />
+		{noindex && <meta name="robots" content="noindex" />}
+		{canonical && <link rel="canonical" href={canonical} />}
+		<slot name="head" />
 	</head>
 	<body>
 		<a class="skip-link" href="#main-content">Hoppa till innehåll</a>
