@@ -1,6 +1,6 @@
 import type { ScopeGap, TaskGroupInput } from './types';
 
-function normalizeTitle(title: string): string {
+export function normalizeTitle(title: string): string {
 	return title
 		.normalize('NFC')
 		.trim()

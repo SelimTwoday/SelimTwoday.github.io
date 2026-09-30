@@ -1,6 +1,7 @@
 import {
 	DEFAULT_HOURS_PER_DAY,
 	DEFAULT_MEETING_HOURS_PER_PERSON,
+	DEFAULT_MEETING_PEOPLE,
 	MAX_GROUPS,
 	MAX_PARTICIPANTS,
 	MAX_QUERY_LENGTH,
@@ -19,6 +20,7 @@ import { validateGroupTaskPertForm } from './validate';
 
 const ESTIMATE_PARAM = 'e';
 const MEETING_PARAM = 'm';
+const PEOPLE_PARAM = 'n';
 const HOURS_PER_DAY_PARAM = 'h';
 const MODE_PARAM = 'mode';
 const TASK_PARAM = 't';
@@ -102,8 +104,23 @@ export function buildPertShareUrl(
 	return query ? `${base}?${query}` : base;
 }
 
-/** Builds a query string for task mode without changing the legacy participant format. */
-export function buildTaskPertQueryString(tasks: TaskEstimate[], hoursPerDay: number): string {
+/** Optional estimation meeting added on top of a PERT Pro or Enterprise estimate. */
+export interface MeetingLink {
+	hoursPerPerson: number;
+	/** Attendees. Only written for PERT Pro; Enterprise counts its people. */
+	people?: number;
+}
+
+/**
+ * Builds a query string for task mode without changing the legacy participant format.
+ * The meeting is only written when one has been added; `m` is then always
+ * present, since its absence means "no meeting" in this mode.
+ */
+export function buildTaskPertQueryString(
+	tasks: TaskEstimate[],
+	hoursPerDay: number,
+	meeting?: MeetingLink,
+): string {
 	const params = new URLSearchParams();
 	params.set(MODE_PARAM, 'tasks');
 	for (const task of tasks) {
@@ -112,7 +129,14 @@ export function buildTaskPertQueryString(tasks: TaskEstimate[], hoursPerDay: num
 	if (hoursPerDay !== DEFAULT_HOURS_PER_DAY) {
 		params.set(HOURS_PER_DAY_PARAM, numberToUrlToken(hoursPerDay));
 	}
+	appendMeeting(params, meeting);
 	return params.toString();
+}
+
+function appendMeeting(params: URLSearchParams, meeting: MeetingLink | undefined): void {
+	if (!meeting) return;
+	params.set(MEETING_PARAM, numberToUrlToken(meeting.hoursPerPerson));
+	if (meeting.people !== undefined) params.set(PEOPLE_PARAM, numberToUrlToken(meeting.people));
 }
 
 export function buildTaskPertShareUrl(
@@ -124,7 +148,11 @@ export function buildTaskPertShareUrl(
 	return `${base}?${buildTaskPertQueryString(tasks, hoursPerDay)}`;
 }
 
-export function buildGroupTaskPertQueryString(groups: TaskGroupEstimate[], hoursPerDay: number): string {
+export function buildGroupTaskPertQueryString(
+	groups: TaskGroupEstimate[],
+	hoursPerDay: number,
+	meeting?: MeetingLink,
+): string {
 	const params = new URLSearchParams();
 	params.set(MODE_PARAM, 'grouptasks');
 	for (const group of groups) {
@@ -136,6 +164,7 @@ export function buildGroupTaskPertQueryString(groups: TaskGroupEstimate[], hours
 	if (hoursPerDay !== DEFAULT_HOURS_PER_DAY) {
 		params.set(HOURS_PER_DAY_PARAM, numberToUrlToken(hoursPerDay));
 	}
+	appendMeeting(params, meeting);
 	return params.toString();
 }
 
@@ -155,6 +184,10 @@ export interface ParsedPertUrl {
 	groups: TaskGroupInput[];
 	errors: string[];
 	meetingHoursPerPerson: string;
+	/** True when the link has an explicit `m`. In PERT Pro and Enterprise that means a meeting was added. */
+	meetingPresent: boolean;
+	/** Meeting attendees (`n`), used by PERT Pro. */
+	meetingPeople: string;
 	hoursPerDay: string;
 }
 
@@ -223,16 +256,21 @@ export function parsePertSearchParams(
 	const mode: PertMode = (modeParam !== null && URL_TOKEN_TO_MODE.get(modeParam)) || 'participants';
 	const meetingHoursPerPerson =
 		params.get(MEETING_PARAM) ?? String(DEFAULT_MEETING_HOURS_PER_PERSON);
-	const hoursPerDay = params.get(HOURS_PER_DAY_PARAM) ?? String(DEFAULT_HOURS_PER_DAY);
+	const shared = {
+		meetingHoursPerPerson,
+		meetingPresent: params.has(MEETING_PARAM),
+		meetingPeople: params.get(PEOPLE_PARAM) ?? String(DEFAULT_MEETING_PEOPLE),
+		hoursPerDay: params.get(HOURS_PER_DAY_PARAM) ?? String(DEFAULT_HOURS_PER_DAY),
+	};
 
 	const violation = findLimitViolation(params, queryText.length);
 	if (violation) {
-		return { mode, rows: [], tasks: [], groups: [], errors: [violation], meetingHoursPerPerson, hoursPerDay };
+		return { mode, rows: [], tasks: [], groups: [], errors: [violation], ...shared };
 	}
 
 	const errors: string[] = [];
 	const empty = (message: string): ParsedPertUrl => (
-		{ mode, rows: [], tasks: [], groups: [], errors: [message], meetingHoursPerPerson, hoursPerDay }
+		{ mode, rows: [], tasks: [], groups: [], errors: [message], ...shared }
 	);
 	const tooLongMessage = `Ett namn eller en titel i länken är längre än ${MAX_TEXT_LENGTH} tecken.`;
 
@@ -261,7 +299,7 @@ export function parsePertSearchParams(
 		return empty(tooLongMessage);
 	}
 
-	return { mode, rows, tasks: validTasks, groups: validGroups, errors, meetingHoursPerPerson, hoursPerDay };
+	return { mode, rows, tasks: validTasks, groups: validGroups, errors, ...shared };
 }
 
 export type TaskLinkImportResult =

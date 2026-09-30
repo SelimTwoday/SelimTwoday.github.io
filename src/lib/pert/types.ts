@@ -194,6 +194,8 @@ export type TaskPertValidationResult = TaskPertValidationSuccess | TaskPertValid
 
 export const DEFAULT_MEETING_HOURS_PER_PERSON = 1;
 export const DEFAULT_HOURS_PER_DAY = 8;
+/** Default number of attendees when an estimation meeting is added in PERT Pro. */
+export const DEFAULT_MEETING_PEOPLE = 2;
 
 /** Limits applied when parsing share links, so a crafted URL cannot freeze the page. */
 export const MAX_GROUPS = 50;

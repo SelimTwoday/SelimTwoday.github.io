@@ -1,3 +1,4 @@
+import { normalizeTitle } from './scope';
 import type {
 	ConfidenceInterval,
 	GroupTaskPertResult,
@@ -41,7 +42,7 @@ export function pertVariance(optimistic: number, pessimistic: number): number {
 	return ((pessimistic - optimistic) / 6) ** 2;
 }
 
-function confidenceIntervals(
+export function confidenceIntervals(
 	expectedHours: number,
 	deviation: number,
 	clampLower = false,
@@ -207,4 +208,57 @@ export function varianceShares(result: TaskPertResult): VarianceShare[] {
 			share: result.variance > 0 ? task.variance / result.variance : 0,
 		}))
 		.sort((a, b) => b.variance - a.variance);
+}
+
+/** Title used for the disagreement row in {@link groupVarianceShares}. */
+export const BETWEEN_PEOPLE_TITLE = 'Oenighet mellan personerna';
+
+/**
+ * Where the uncertainty of a group estimate sits, largest first.
+ * The group variance is the mean of the people's variances plus the variance
+ * between their totals, so each task contributes its variance divided by the
+ * number of people (tasks with the same title are merged across people), and
+ * the disagreement between people is its own row. Shares sum to 1.
+ */
+export function groupVarianceShares(result: GroupTaskPertResult): VarianceShare[] {
+	const people = result.groups.length;
+	const merged = new Map<string, { title: string; variance: number }>();
+	result.groups.forEach((group, groupIndex) => {
+		group.tasks.forEach((task, taskIndex) => {
+			const normalized = normalizeTitle(task.title);
+			const key = normalized || `\u0000${groupIndex}-${taskIndex}`;
+			const entry = merged.get(key) ?? { title: task.title.trim(), variance: 0 };
+			entry.variance += task.variance / people;
+			merged.set(key, entry);
+		});
+	});
+
+	const rows = [...merged.values(), { title: BETWEEN_PEOPLE_TITLE, variance: result.betweenVariance }];
+	return rows
+		.map((row) => ({ ...row, share: result.variance > 0 ? row.variance / result.variance : 0 }))
+		.sort((a, b) => b.variance - a.variance);
+}
+
+export interface MeetingAdjustedResult {
+	finalHours: number;
+	workdays: number;
+	confidenceIntervals: ConfidenceInterval[];
+}
+
+/**
+ * Adds a fixed meeting cost on top of an estimate. Meeting time is not a
+ * random variable, so it shifts the intervals without widening them.
+ */
+export function withMeeting(
+	expectedHours: number,
+	deviation: number,
+	meetingTotalHours: number,
+	hoursPerDay: number,
+): MeetingAdjustedResult {
+	const finalHours = expectedHours + meetingTotalHours;
+	return {
+		finalHours,
+		workdays: finalHours / hoursPerDay,
+		confidenceIntervals: confidenceIntervals(finalHours, deviation, true),
+	};
 }
