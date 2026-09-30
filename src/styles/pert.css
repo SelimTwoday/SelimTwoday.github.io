@@ -779,8 +779,12 @@ details[open] > summary > .pert-chevron {
 	color: var(--pert-muted);
 }
 
+.pert-head__sd [data-out='sd'] {
+	margin-left: 0.125rem;
+}
+
 .pert-head__sd {
-	margin-left: 0.375rem;
+	margin-left: 0.75rem;
 	font-size: 1.25rem;
 	font-weight: 400;
 	letter-spacing: 0;
