@@ -13,7 +13,7 @@ eventuell interaktivitet körs helt i webbläsaren.
 ## Innehåll
 
 - [`/`](src/pages/index.astro) — visitkort/intro + ett responsivt rutnät med verktyg.
-- [`/verktyg/pert/`](src/pages/verktyg/pert/index.astro) — nya PERT-kalkylatorn: Gruppestimat, PERT Pro och Enterprise.
+- [`/verktyg/pert/`](src/pages/verktyg/pert/index.astro) — nya PERT-kalkylatorn: Gruppestimat och Enterprise (som även ersätter PERT Pro).
 - [`/verktyg/pert_old/`](src/pages/verktyg/pert_old/index.astro) — den tidigare PERT-sidan, orörd och kvar som reserv (`noindex`, canonical pekar på `/verktyg/pert/`).
 - [`/verktyg/kodfilosofi/`](src/pages/verktyg/kodfilosofi/index.astro) — samlad kodfilosofi i stigande svårighetsgrad.
 
@@ -54,14 +54,21 @@ byggda sajten lokalt för en sista koll innan deploy.
 
 ## PERT-kalkylatorn (`/verktyg/pert/`)
 
-Sidan har tre lägen som delar skal, tabellkomponent och resultatpanel.
+Sidan har två lägen som delar skal, tabellkomponent och resultatpanel.
 Lägesväljaren skriver `mode` i adressfältet.
 
-| Läge | `mode` i URL | Internt läge | Idé |
-| --- | --- | --- | --- |
-| Gruppestimat | `group` | `participants` | Varje deltagare uppskattar hela uppgiften; värdena vägs ihop och mötestid läggs på. |
-| PERT Pro | `tasks` | `tasks` | Deluppgifter summeras; osäkerheten vägs ihop och "Var sitter osäkerheten?" visar varje deluppgifts andel av variansen. |
-| Enterprise | `grouptasks` | `grouptasks` | Se nästa avsnitt. |
+| Läge | `mode` i URL | Idé |
+| --- | --- | --- |
+| Gruppestimat | `group` | Varje deltagare uppskattar hela uppgiften; värdena vägs ihop och mötestid läggs på. |
+| Enterprise | `grouptasks` | Personer med egna deluppgifter. Med en person fungerar det som det tidigare läget PERT Pro. |
+
+**PERT Pro har gått upp i Enterprise.** Med en person göms personchips,
+"Personernas totaler", oenighetsvarningar och raden om oenighet mellan
+personer, så sidan är i praktiken den gamla PERT Pro. Gamla `?mode=tasks`-länkar
+läses och öppnas som en person ("Person 1") i Enterprise, och adressfältet
+skrivs om till `mode=grouptasks`; nya sidan skriver aldrig `mode=tasks`. Ett
+tomt personnamn hindrar inte delning: länken får då "Person N".
+Enterprise-skämtet visas även när en gammal Pro-länk öppnas (tills det kvitterats).
 
 **Delningslänkar.** Nya Gruppestimat-länkar skrivs som
 `?mode=group&e=O,M,P[,namn]&e=…`, där namnet är valfritt, procentkodat och
@@ -74,23 +81,22 @@ Länkar över gränserna (50 personer, 200 deluppgifter per person, 100
 deltagare, 200 tecken per namn/titel, 32 000 tecken totalt) avvisas med ett
 felmeddelande i stället för att tolkas delvis.
 
-**Gemensam resultatpanel.** Alla tre lägen visar samma komponenter: stort tal
+**Gemensam resultatpanel.** Båda lägena visar samma komponenter: stort tal
 med arbetsdagar (`h=` delas mellan lägena) och ± σ, ett estimeringsmöte,
 konfidensstapeln med 68 / 95 / 99,7 %-intervall (skrivs "a – b h"),
 optimistiskt / mest troligt / pessimistiskt och en fällbar "Hur räknas det?".
-PERT Pro och Enterprise har dessutom en fällbar **Var sitter osäkerheten?**
+Enterprise har dessutom en fällbar **Var sitter osäkerheten?**
 (öppen som standard). I Enterprise delas varje deluppgifts varians på antalet
 personer, deluppgifter med samma titel slås ihop, och oenigheten mellan
-personerna redovisas som en egen rad; andelarna summerar till 100 %.
+personerna redovisas som en egen rad (bara med fler än en person); andelarna
+summerar till 100 %.
 
 **Estimeringsmöte.** I Gruppestimat räknas mötet alltid (deltagare × timmar per
-person). I PERT Pro och Enterprise läggs det till med "Lägg till
-estimeringsmöte" och tas bort med ×. Mötestiden är en fast kostnad som skjuter
-estimat och intervall uppåt utan att göra dem bredare. PERT Pro anger antal
-deltagare själv; Enterprise räknar sina personer. I länken skrivs `m=` (timmar
-per person, alltid med när ett möte lagts till) och för PERT Pro `n=` (antal
-deltagare). Länkar utan `m=` i dessa lägen har inget möte, så äldre länkar ger
-samma resultat som förut.
+person). I Enterprise läggs det till med "Lägg till estimeringsmöte" och tas
+bort med ×; deltagarna är alltid antalet personer. Mötestiden är en fast
+kostnad som skjuter estimat och intervall uppåt utan att göra dem bredare. I
+länken skrivs `m=` (timmar per person, alltid med när ett möte lagts till).
+Länkar utan `m=` i Enterprise har inget möte. En gammal `n=` ignoreras.
 
 **Preliminära resultat.** Medan formuläret är ofullständigt räknas de rader
 som är giltiga och resultatet märks "Preliminärt · N rader räknas inte".

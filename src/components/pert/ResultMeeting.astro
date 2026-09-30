@@ -3,12 +3,10 @@ export interface Props {
 	/** Unique id prefix for the form controls. */
 	prefix: string;
 	/** Optional meetings start hidden behind an "add" button. */
-	optional: boolean;
-	/** True when the number of attendees is typed in; otherwise it is counted from the form. */
-	editablePeople: boolean;
+	optional?: boolean;
 }
 
-const { prefix, optional, editablePeople } = Astro.props;
+const { prefix, optional = true } = Astro.props;
 ---
 
 <div class="pert-meeting" data-meeting-root>
@@ -39,11 +37,7 @@ const { prefix, optional, editablePeople } = Astro.props;
 			)}
 		</div>
 		<div class="pert-meeting__inputs">
-			{editablePeople ? (
-				<input class="pert-inline pert-inline--narrow pert-num" data-meeting-people inputmode="numeric" autocomplete="off" maxlength="3" aria-label="Antal deltagare i mötet" />
-			) : (
-				<span class="pert-num pert-muted" data-out="people">0</span>
-			)}
+			<span class="pert-num pert-muted" data-out="people">0</span>
 			<span class="pert-num pert-muted">×</span>
 			<input id={`${prefix}-meeting-hours`} class="pert-inline pert-inline--wide pert-num" data-meeting inputmode="decimal" autocomplete="off" maxlength="6" aria-label="Timmar per person i mötet" aria-describedby={`${prefix}-meeting-unit`} />
 			<span id={`${prefix}-meeting-unit`} class="pert-muted">h/person</span>

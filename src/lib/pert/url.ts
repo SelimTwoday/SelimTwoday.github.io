@@ -1,7 +1,6 @@
 import {
 	DEFAULT_HOURS_PER_DAY,
 	DEFAULT_MEETING_HOURS_PER_PERSON,
-	DEFAULT_MEETING_PEOPLE,
 	MAX_GROUPS,
 	MAX_PARTICIPANTS,
 	MAX_QUERY_LENGTH,
@@ -20,7 +19,6 @@ import { validateGroupTaskPertForm } from './validate';
 
 const ESTIMATE_PARAM = 'e';
 const MEETING_PARAM = 'm';
-const PEOPLE_PARAM = 'n';
 const HOURS_PER_DAY_PARAM = 'h';
 const MODE_PARAM = 'mode';
 const TASK_PARAM = 't';
@@ -104,11 +102,9 @@ export function buildPertShareUrl(
 	return query ? `${base}?${query}` : base;
 }
 
-/** Optional estimation meeting added on top of a PERT Pro or Enterprise estimate. */
+/** Optional estimation meeting added on top of an Enterprise estimate. */
 export interface MeetingLink {
 	hoursPerPerson: number;
-	/** Attendees. Only written for PERT Pro; Enterprise counts its people. */
-	people?: number;
 }
 
 /**
@@ -136,7 +132,6 @@ export function buildTaskPertQueryString(
 function appendMeeting(params: URLSearchParams, meeting: MeetingLink | undefined): void {
 	if (!meeting) return;
 	params.set(MEETING_PARAM, numberToUrlToken(meeting.hoursPerPerson));
-	if (meeting.people !== undefined) params.set(PEOPLE_PARAM, numberToUrlToken(meeting.people));
 }
 
 export function buildTaskPertShareUrl(
@@ -184,10 +179,8 @@ export interface ParsedPertUrl {
 	groups: TaskGroupInput[];
 	errors: string[];
 	meetingHoursPerPerson: string;
-	/** True when the link has an explicit `m`. In PERT Pro and Enterprise that means a meeting was added. */
+	/** True when the link has an explicit `m`. In Enterprise (and old PERT Pro links) that means a meeting was added. */
 	meetingPresent: boolean;
-	/** Meeting attendees (`n`), used by PERT Pro. */
-	meetingPeople: string;
 	hoursPerDay: string;
 }
 
@@ -259,7 +252,6 @@ export function parsePertSearchParams(
 	const shared = {
 		meetingHoursPerPerson,
 		meetingPresent: params.has(MEETING_PARAM),
-		meetingPeople: params.get(PEOPLE_PARAM) ?? String(DEFAULT_MEETING_PEOPLE),
 		hoursPerDay: params.get(HOURS_PER_DAY_PARAM) ?? String(DEFAULT_HOURS_PER_DAY),
 	};
 

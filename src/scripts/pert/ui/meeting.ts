@@ -1,13 +1,11 @@
 import { formatSwedishNumber, parseSwedishNumber } from '../../../lib/pert/format';
-import { DEFAULT_MEETING_HOURS_PER_PERSON, DEFAULT_MEETING_PEOPLE } from '../../../lib/pert/types';
+import { DEFAULT_MEETING_HOURS_PER_PERSON } from '../../../lib/pert/types';
 import { query, setText } from './dom';
 import { bindInlineNumber } from './inline-number';
 
 export interface MeetingState {
 	enabled: boolean;
 	hours: string;
-	/** Attendees typed by the user. Only used where the count is editable. */
-	people: string;
 }
 
 export interface MeetingValues {
@@ -20,18 +18,17 @@ export interface MeetingValues {
 export interface MeetingControl {
 	isEnabled: () => boolean;
 	hoursText: () => string;
-	peopleText: () => string;
 	/** True when the meeting is off or its fields hold usable numbers. */
 	isValid: () => boolean;
 	/** Numbers for the calculation, or null when the meeting is off or invalid. */
-	parsed: () => { hoursPerPerson: number; people: number | null } | null;
+	parsed: () => { hoursPerPerson: number } | null;
 	set: (state: Partial<MeetingState>) => void;
 	paint: (values: MeetingValues) => void;
 }
 
 /**
  * The "Estimeringsmöte" part of a result panel: the work/meeting split, the
- * hours-per-person field and, in PERT Pro, the number of attendees.
+ * hours-per-person field and.
  * Optional meetings start hidden behind an "add" button.
  */
 export function createMeetingControl(root: HTMLElement, onChange: () => void): MeetingControl {
@@ -40,7 +37,6 @@ export function createMeetingControl(root: HTMLElement, onChange: () => void): M
 	const addButton = meetingRoot.querySelector<HTMLButtonElement>('[data-meeting-add]');
 	const removeButton = meetingRoot.querySelector<HTMLButtonElement>('[data-meeting-remove]');
 	const hoursInput = query<HTMLInputElement>(meetingRoot, '[data-meeting]');
-	const peopleInput = meetingRoot.querySelector<HTMLInputElement>('[data-meeting-people]');
 	const barWork = query<HTMLElement>(meetingRoot, '[data-bar-work]');
 	const barMeeting = query<HTMLElement>(meetingRoot, '[data-bar-meeting]');
 	const optional = addButton !== null;
@@ -49,24 +45,10 @@ export function createMeetingControl(root: HTMLElement, onChange: () => void): M
 	const hours = bindInlineNumber(hoursInput, { allowZero: true, onInput: onChange });
 	hours.setValue(String(DEFAULT_MEETING_HOURS_PER_PERSON));
 
-	const attendeesValid = (): boolean => {
-		if (!peopleInput) return true;
-		const value = parseSwedishNumber(peopleInput.value);
-		return value !== null && Number.isInteger(value) && value >= 1;
-	};
 	const hoursValid = (): boolean => {
 		const value = parseSwedishNumber(hoursInput.value);
 		return value !== null && value >= 0;
 	};
-
-	if (peopleInput) {
-		peopleInput.value = String(DEFAULT_MEETING_PEOPLE);
-		peopleInput.addEventListener('input', () => {
-			if (attendeesValid()) peopleInput.removeAttribute('aria-invalid');
-			else peopleInput.setAttribute('aria-invalid', 'true');
-			onChange();
-		});
-	}
 
 	function show(next: boolean): void {
 		enabled = next;
@@ -89,22 +71,13 @@ export function createMeetingControl(root: HTMLElement, onChange: () => void): M
 	return {
 		isEnabled: () => enabled,
 		hoursText: () => hoursInput.value,
-		peopleText: () => peopleInput?.value ?? '',
-		isValid: () => !enabled || (hoursValid() && attendeesValid()),
-		parsed(): { hoursPerPerson: number; people: number | null } | null {
-			if (!enabled || !hoursValid() || !attendeesValid()) return null;
-			return {
-				hoursPerPerson: parseSwedishNumber(hoursInput.value) as number,
-				people: peopleInput ? (parseSwedishNumber(peopleInput.value) as number) : null,
-			};
+		isValid: () => !enabled || hoursValid(),
+		parsed(): { hoursPerPerson: number } | null {
+			if (!enabled || !hoursValid()) return null;
+			return { hoursPerPerson: parseSwedishNumber(hoursInput.value) as number };
 		},
 		set(state: Partial<MeetingState>): void {
 			if (state.hours !== undefined) hours.setValue(state.hours);
-			if (state.people !== undefined && peopleInput) {
-				peopleInput.value = state.people;
-				if (attendeesValid()) peopleInput.removeAttribute('aria-invalid');
-				else peopleInput.setAttribute('aria-invalid', 'true');
-			}
 			if (state.enabled !== undefined) show(state.enabled);
 		},
 		paint({ work, meeting, people }: MeetingValues): void {

@@ -4,6 +4,7 @@ import {
 	calculateGroupTaskPert,
 	calculateTaskPert,
 	groupVarianceShares,
+	varianceShares,
 	withMeeting,
 } from '../calculate';
 import {
@@ -46,6 +47,17 @@ describe('groupVarianceShares', () => {
 		const flat = calculateGroupTaskPert([person('A', [['x', 5, 5, 5]]), person('B', [['x', 5, 5, 5]])], 8);
 		expect(groupVarianceShares(flat).every((item) => item.share === 0)).toBe(true);
 	});
+
+	it('for one person matches PERT Pro: no disagreement row, same shares', () => {
+		const tasks = person('Solo', [['A', 8, 10, 16], ['B', 4, 6, 10]]);
+		const single = calculateGroupTaskPert([tasks], 8);
+		const plain = calculateTaskPert(tasks.tasks, 8);
+		expect(single.expectedHours).toBeCloseTo(plain.expectedHours);
+		expect(single.standardDeviation).toBeCloseTo(plain.standardDeviation);
+		const shares = groupVarianceShares(single);
+		expect(shares.map((item) => item.title)).not.toContain(BETWEEN_PEOPLE_TITLE);
+		expect(shares.map((item) => item.share)).toEqual(varianceShares(plain).map((item) => item.share));
+	});
 });
 
 describe('withMeeting', () => {
@@ -79,11 +91,11 @@ describe('meeting in PERT Pro and Enterprise links', () => {
 	});
 
 	it('always writes m when a meeting is added, even for the default 1 h', () => {
-		const query = buildTaskPertQueryString(tasks, 8, { hoursPerPerson: 1, people: 3 });
+		const query = buildTaskPertQueryString(tasks, 8, { hoursPerPerson: 1 });
 		const parsed = parsePertSearchParams(query);
 		expect(parsed.meetingPresent).toBe(true);
 		expect(parsed.meetingHoursPerPerson).toBe('1');
-		expect(parsed.meetingPeople).toBe('3');
+		expect(new URLSearchParams(query).has('n')).toBe(false);
 	});
 
 	it('writes only m for Enterprise', () => {

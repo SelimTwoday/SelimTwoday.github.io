@@ -22,6 +22,8 @@ import type { ModeController, PertContext } from './context';
 
 const EMPTY_ROWS = 3;
 const MAX_LISTED_TITLES = 3;
+const SOLO_LEAD = 'Bryt ner arbetet i deluppgifter. Tiderna summeras och osäkerheten vägs ihop. Lägg till fler personer för att jämföra.';
+const MULTI_LEAD = 'Varje person uppskattar samma projekt. Totalerna jämförs och vägs lika.';
 
 interface Person {
 	id: number;
@@ -61,6 +63,7 @@ export function createGroupTasksMode(
 	const addPersonButton = query<HTMLButtonElement>(root, '[data-add-person]');
 	const removePersonButton = query<HTMLButtonElement>(root, '[data-remove-person]');
 	const personName = query<HTMLInputElement>(root, '[data-person-name]');
+	const count = query<HTMLElement>(root, '[data-count]');
 	const rowError = query<HTMLElement>(root, '[data-row-error]');
 	const gapsElement = query<HTMLElement>(root, '[data-gaps]');
 	const importToggle = query<HTMLButtonElement>(root, '[data-import-toggle]');
@@ -99,7 +102,7 @@ export function createGroupTasksMode(
 			group.tasks.length > 0
 				? group.tasks.map((task) => ({ name: task.title, o: task.o, m: task.m, p: task.p }))
 				: [blankRow()],
-			false,
+			/^Person \d+$/.test(group.name),
 		))
 		: [defaultPerson()];
 	let activeId = people[0].id;
@@ -122,7 +125,11 @@ export function createGroupTasksMode(
 	const activePerson = (): Person => people.find((person) => person.id === activeId) ?? people[0];
 	const displayName = (person: Person): string => person.name.trim() || 'Namnlös';
 	const toRows = (tasks: EstimateRow[]): TaskRowInput[] => tasks.map((task) => ({ title: task.name, o: task.o, m: task.m, p: task.p }));
-	const toGroup = (person: Person): TaskGroupInput => ({ name: person.name, tasks: toRows(person.tasks) });
+	// An empty name never blocks sharing; the link then carries a numbered fallback.
+	const toGroup = (person: Person, index: number): TaskGroupInput => ({
+		name: person.name.trim() || `Person ${index + 1}`,
+		tasks: toRows(person.tasks),
+	});
 
 	function isPristine(person: Person): boolean {
 		return person.generatedName && person.tasks.every((task) => !task.name.trim() && !task.o.trim() && !task.m.trim() && !task.p.trim());
@@ -166,7 +173,7 @@ export function createGroupTasksMode(
 		activeId = people[Math.min(index, people.length - 1)].id;
 		showPerson();
 		ctx.changed();
-		chips.get(activeId)?.button.focus();
+		(chips.get(activeId)?.button.offsetParent ? chips.get(activeId)?.button : addPersonButton)?.focus();
 	}
 
 	function reconcileChips(totals: Map<number, string>): void {
@@ -344,6 +351,12 @@ export function createGroupTasksMode(
 		const active = activePerson();
 		const hoursPerDay = ctx.getHoursPerDay();
 		const groups = people.map(toGroup);
+		const solo = people.length === 1;
+		for (const element of root.querySelectorAll<HTMLElement>('[data-solo]')) element.hidden = !solo;
+		for (const element of root.querySelectorAll<HTMLElement>('[data-multi]')) element.hidden = solo;
+		chipsElement.hidden = solo;
+		count.textContent = pluralize(active.tasks.length, 'uppgift', 'uppgifter');
+		ctx.setLead(solo ? SOLO_LEAD : MULTI_LEAD);
 
 		const evaluations = active.tasks.map(evaluateRow);
 		table.paint(evaluations);
@@ -355,7 +368,6 @@ export function createGroupTasksMode(
 			totals.set(person.id, personPreview.result ? `${formatSwedishNumber(personPreview.result.expectedHours, 1)} h` : '–');
 		}
 		reconcileChips(totals);
-		removePersonButton.hidden = people.length <= 1;
 		addPersonButton.disabled = people.length >= MAX_GROUPS;
 		renderGaps();
 
@@ -385,7 +397,7 @@ export function createGroupTasksMode(
 			)
 			: null;
 		share.setEnabled(complete);
-		share.setNoticeVisible(true);
+		share.setNoticeVisible(!solo || people.some((person) => !person.generatedName && person.name.trim() !== ''));
 		share.clearStatus();
 
 		const result = preview.result;
@@ -414,6 +426,7 @@ export function createGroupTasksMode(
 			standardDeviation: result.standardDeviation,
 			intervals: adjusted.confidenceIntervals,
 		});
+		setText(root, 'formula', `σ = √Σ((P − O) / 6)² = ${formatSwedishNumber(result.standardDeviation, 2)} h`);
 		setText(root, 'avgO', format(result.averageO));
 		setText(root, 'avgM', format(result.averageM));
 		setText(root, 'avgP', format(result.averageP));

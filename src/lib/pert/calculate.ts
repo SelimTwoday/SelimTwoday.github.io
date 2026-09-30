@@ -233,7 +233,8 @@ export function groupVarianceShares(result: GroupTaskPertResult): VarianceShare[
 		});
 	});
 
-	const rows = [...merged.values(), { title: BETWEEN_PEOPLE_TITLE, variance: result.betweenVariance }];
+	const rows = [...merged.values()];
+	if (people > 1) rows.push({ title: BETWEEN_PEOPLE_TITLE, variance: result.betweenVariance });
 	return rows
 		.map((row) => ({ ...row, share: result.variance > 0 ? row.variance / result.variance : 0 }))
 		.sort((a, b) => b.variance - a.variance);

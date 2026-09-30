@@ -1,22 +1,18 @@
 import { initEnterpriseGag } from '../enterprise-gag';
 import { GROUP_MODE_TOKEN, parsePertSearchParams } from '../../lib/pert/url';
-import type { PertMode } from '../../lib/pert/types';
+import type { TaskGroupInput } from '../../lib/pert/types';
 import { query, queryAll } from './ui/dom';
 import { bindInlineNumber } from './ui/inline-number';
 import type { ModeController, PertContext } from './modes/context';
 import { createGroupMode } from './modes/group';
 import { createGroupTasksMode } from './modes/grouptasks';
-import { createTasksMode } from './modes/tasks';
 
-const LEADS: Record<PertMode, string> = {
-	participants: 'Varje deltagare uppskattar hela uppgiften. Värdena vägs ihop till ett gemensamt estimat.',
-	tasks: 'Bryt ner arbetet i deluppgifter. Tiderna summeras och osäkerheten vägs ihop.',
-	grouptasks: 'Varje person uppskattar samma projekt. Totalerna jämförs och vägs lika.',
-};
+type Screen = 'participants' | 'grouptasks';
 
-const URL_TOKENS: Record<PertMode, string> = {
+const PARTICIPANTS_LEAD = 'Varje deltagare uppskattar hela uppgiften. Värdena vägs ihop till ett gemensamt estimat.';
+
+const URL_TOKENS: Record<Screen, string> = {
 	participants: GROUP_MODE_TOKEN,
-	tasks: 'tasks',
 	grouptasks: 'grouptasks',
 };
 
@@ -36,10 +32,11 @@ if (parsed.errors.length > 0) {
 const usable = parsed.errors.length === 0;
 
 let hoursPerDay = parsed.hoursPerDay;
-let activeMode: PertMode = parsed.mode;
-const controllers = new Map<PertMode, ModeController>();
-const workspaces = new Map<PertMode, HTMLElement>();
-for (const mode of Object.keys(LEADS) as PertMode[]) {
+// Old PERT Pro links (mode=tasks) open as a single person in Enterprise.
+let activeMode: Screen = parsed.mode === 'participants' ? 'participants' : 'grouptasks';
+const controllers = new Map<Screen, ModeController>();
+const workspaces = new Map<Screen, HTMLElement>();
+for (const mode of Object.keys(URL_TOKENS) as Screen[]) {
 	workspaces.set(mode, query<HTMLElement>(page, `[data-workspace="${mode}"]`));
 }
 
@@ -85,6 +82,9 @@ const context: PertContext = {
 		summaryBar.hidden = text === null;
 		summaryText.textContent = text ?? '';
 	},
+	setLead: (text) => {
+		lead.textContent = text;
+	},
 	baseUrl: () => window.location.origin + window.location.pathname,
 };
 
@@ -95,28 +95,21 @@ controllers.set(
 		meeting: parsed.meetingHoursPerPerson,
 	}),
 );
-controllers.set(
-	'tasks',
-	createTasksMode(workspaces.get('tasks') as HTMLElement, context, {
-		tasks: usable ? parsed.tasks : [],
-		meeting: {
-			enabled: usable && parsed.mode === 'tasks' && parsed.meetingPresent,
-			hours: parsed.meetingHoursPerPerson,
-			people: parsed.meetingPeople,
-		},
-	}),
-);
+const initialGroups: TaskGroupInput[] = !usable
+	? []
+	: parsed.mode === 'tasks'
+		? (parsed.tasks.length > 0 ? [{ name: 'Person 1', tasks: parsed.tasks }] : [])
+		: parsed.groups;
 controllers.set(
 	'grouptasks',
 	createGroupTasksMode(
 		workspaces.get('grouptasks') as HTMLElement,
 		context,
 		{
-			groups: usable ? parsed.groups : [],
+			groups: initialGroups,
 			meeting: {
-				enabled: usable && parsed.mode === 'grouptasks' && parsed.meetingPresent,
+				enabled: usable && parsed.mode !== 'participants' && parsed.meetingPresent,
 				hours: parsed.meetingHoursPerPerson,
-				people: parsed.meetingPeople,
 			},
 		},
 		initEnterpriseGag(),
@@ -125,21 +118,21 @@ controllers.set(
 
 syncHoursFields();
 
-function showMode(mode: PertMode): void {
+function showMode(mode: Screen): void {
 	activeMode = mode;
 	for (const [name, element] of workspaces) element.hidden = name !== mode;
 	for (const link of modeLinks) {
 		if (link.dataset.modeLink === mode) link.setAttribute('aria-current', 'page');
 		else link.removeAttribute('aria-current');
 	}
-	lead.textContent = LEADS[mode];
+	if (mode === 'participants') lead.textContent = PARTICIPANTS_LEAD;
 	active().activate();
 }
 
 for (const link of modeLinks) {
 	link.addEventListener('click', (event) => {
 		event.preventDefault();
-		const mode = link.dataset.modeLink as PertMode;
+		const mode = link.dataset.modeLink as Screen;
 		if (mode === activeMode) return;
 		showMode(mode);
 		const search = active().queryString();

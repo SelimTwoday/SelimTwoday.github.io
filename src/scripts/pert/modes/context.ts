@@ -7,6 +7,8 @@ export interface PertContext {
 	changed: () => void;
 	/** Updates the compact summary bar on narrow screens. */
 	setSummary: (text: string | null) => void;
+	/** Sets the sentence under the page title. */
+	setLead: (text: string) => void;
 	/** The absolute origin + pathname used for share links. */
 	baseUrl: () => string;
 }

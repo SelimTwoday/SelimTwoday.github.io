@@ -26,7 +26,7 @@ const checklist = [
 
 <BaseLayout
 	title="PERT-kalkylator"
-	description="Räkna ut PERT-estimat för grupper och deluppgifter, eller jämför personers projektuppskattningar med PERT Pro Enterprise."
+	description="Räkna ut PERT-estimat för grupper, deluppgifter och flera personers projektuppskattningar."
 >
 	{import.meta.env.PROD && (
 		<meta
@@ -44,7 +44,6 @@ const checklist = [
 				</div>
 				<nav class="pert-modes" aria-label="Läge">
 					<a class="pert-modes__link" href="?mode=group" data-mode-link="participants">Gruppestimat</a>
-					<a class="pert-modes__link" href="?mode=tasks" data-mode-link="tasks">PERT Pro</a>
 					<a class="pert-modes__link" href="?mode=grouptasks" data-mode-link="grouptasks">Enterprise</a>
 				</nav>
 			</header>
@@ -90,7 +89,7 @@ const checklist = [
 					<ResultHead label="Gemensamt estimat" />
 					<p class="pert-empty" data-empty>Fyll i en rad för att se ett estimat.</p>
 					<div class="pert-result__body" data-result-body>
-						<ResultMeeting prefix="group" optional={false} editablePeople={false} />
+						<ResultMeeting prefix="group" optional={false} />
 						<div data-band></div>
 						<hr class="pert-rule" />
 						<ResultTriple />
@@ -112,41 +111,6 @@ const checklist = [
 				</aside>
 			</section>
 
-			<!-- PERT Pro -->
-			<section class="pert-workspace" data-workspace="tasks" aria-label="PERT Pro" hidden>
-				<div class="pert-input">
-					<div class="pert-card">
-						<div class="pert-card__head">
-							<h2>Deluppgifter</h2>
-							<span class="pert-count" data-count></span>
-						</div>
-						<EstimateTable nameHeading="Deluppgift" addLabel="Lägg till deluppgift" />
-					</div>
-					<p class="pert-note" data-row-error role="status" hidden></p>
-				</div>
-
-				<aside class="pert-result pert-card" data-panel aria-label="Resultat">
-					<ResultHead label="Förväntad total tid" />
-					<p class="pert-empty" data-empty>Fyll i en rad för att se ett estimat.</p>
-					<div class="pert-result__body" data-result-body>
-						<ResultMeeting prefix="tasks" optional={true} editablePeople={true} />
-						<div data-band></div>
-						<hr class="pert-rule" />
-						<ResultTriple />
-						<ResultShares />
-						<details class="pert-how" data-export-hide>
-							<summary>
-								<svg class="pert-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 2.5L7.5 6 4 9.5"></path></svg>
-								Hur räknas det?
-							</summary>
-							<p class="pert-formula pert-num" data-out="formula"></p>
-							<p>Varje deluppgift ger (O + 4M + P) / 6 och σ = (P − O) / 6. Tiderna summeras och varianserna läggs ihop innan roten dras. Det förutsätter att deluppgifterna är oberoende av varandra: hänger de ihop underskattas osäkerheten och 95 %-intervallet blir för smalt. Mötestiden läggs ovanpå och påverkar inte osäkerheten. Intervallen är riktmärken, inte garantier.</p>
-						</details>
-					</div>
-					<ShareBar />
-				</aside>
-			</section>
-
 			<!-- Enterprise -->
 			<section class="pert-workspace" data-workspace="grouptasks" aria-label="Enterprise" hidden>
 				<div class="pert-input">
@@ -164,7 +128,7 @@ const checklist = [
 					</div>
 
 					<div class="pert-import" id="pert-import-panel" data-import-panel hidden>
-						<label for="pert-import-url">Klistra in en PERT Pro- eller Enterprise-länk</label>
+						<label for="pert-import-url">Klistra in en PERT-länk från Enterprise eller den äldre PERT Pro</label>
 						<div class="pert-import__row">
 							<input id="pert-import-url" class="pert-field" data-import-url type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…" aria-describedby="pert-import-error" />
 							<button type="button" class="pert-primary pert-primary--small" data-import-run>Importera</button>
@@ -185,10 +149,12 @@ const checklist = [
 
 					<div class="pert-card">
 						<div class="pert-card__head pert-card__head--person">
+							<h2 data-solo>Deluppgifter</h2>
+							<span class="pert-count" data-count data-solo></span>
 							<label class="pert-visually-hidden" for="pert-person-name">Namn på person</label>
-							<input id="pert-person-name" class="pert-cell pert-cell--name pert-person-name" data-person-name maxlength="200" placeholder="Namn" autocomplete="off" />
+							<input id="pert-person-name" class="pert-cell pert-cell--name pert-person-name" data-person-name data-multi maxlength="200" placeholder="Namn" autocomplete="off" />
 							<span class="pert-people__spacer"></span>
-							<button type="button" class="pert-ghost" data-remove-person>Ta bort person</button>
+							<button type="button" class="pert-ghost" data-remove-person data-multi>Ta bort person</button>
 						</div>
 						<EstimateTable nameHeading="Deluppgift" addLabel="Lägg till deluppgift" />
 					</div>
@@ -201,11 +167,11 @@ const checklist = [
 					<ResultHead label="Förväntad projekttid" />
 					<p class="pert-empty" data-empty>Fyll i en rad för att se ett estimat.</p>
 					<div class="pert-result__body" data-result-body>
-						<ResultMeeting prefix="grouptasks" optional={true} editablePeople={false} />
+						<ResultMeeting prefix="grouptasks" />
 						<div data-band></div>
 						<hr class="pert-rule" />
 						<ResultTriple />
-						<div class="pert-people-totals">
+						<div class="pert-people-totals" data-multi>
 							<div class="pert-people-totals__head">
 								<span>Personernas totaler</span>
 								<span data-out="spread"></span>
@@ -227,8 +193,10 @@ const checklist = [
 								<svg class="pert-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 2.5L7.5 6 4 9.5"></path></svg>
 								Hur räknas det?
 							</summary>
-							<p>Varje deluppgift ger (O + 4M + P) / 6 och σ = (P − O) / 6. Personens total är summan, gruppens är medelvärdet av totalerna. Osäkerheten väger ihop variansen inom personerna (<span class="pert-num" data-out="within">–</span> h) och skillnaden mellan dem (<span class="pert-num" data-out="between">–</span> h). I "Var sitter osäkerheten?" delas varje deluppgifts varians på antalet personer, och oenigheten mellan personerna redovisas som en egen rad.</p>
-							<p>Modellen förutsätter att deluppgifterna är oberoende av varandra: hänger de ihop underskattas osäkerheten. Mötestiden läggs ovanpå och påverkar inte osäkerheten. Intervallen bygger på en normalapproximation och är riktmärken, inte garantier, särskilt med få personer eller stor oenighet.</p>
+							<p class="pert-formula pert-num" data-out="formula" data-solo></p>
+							<p data-solo>Varje deluppgift ger (O + 4M + P) / 6 och σ = (P − O) / 6. Tiderna summeras och varianserna läggs ihop innan roten dras. Det förutsätter att deluppgifterna är oberoende av varandra: hänger de ihop underskattas osäkerheten och 95 %-intervallet blir för smalt. Mötestiden läggs ovanpå och påverkar inte osäkerheten. Intervallen är riktmärken, inte garantier.</p>
+							<p data-multi>Varje deluppgift ger (O + 4M + P) / 6 och σ = (P − O) / 6. Personens total är summan, gruppens är medelvärdet av totalerna. Osäkerheten väger ihop variansen inom personerna (<span class="pert-num" data-out="within">–</span> h) och skillnaden mellan dem (<span class="pert-num" data-out="between">–</span> h). I "Var sitter osäkerheten?" delas varje deluppgifts varians på antalet personer, och oenigheten mellan personerna redovisas som en egen rad.</p>
+							<p data-multi>Modellen förutsätter att deluppgifterna är oberoende av varandra: hänger de ihop underskattas osäkerheten. Mötestiden läggs ovanpå och påverkar inte osäkerheten. Intervallen bygger på en normalapproximation och är riktmärken, inte garantier, särskilt med få personer eller stor oenighet.</p>
 						</details>
 					</div>
 					<ShareBar notice="Länken innehåller namn och estimat." />
