@@ -7,6 +7,7 @@ import type {
 	TaskEstimate,
 	TaskPertResult,
 	TaskGroupEstimate,
+	VarianceShare,
 } from './types';
 
 /** Arithmetic mean of a list of numbers. Assumes a non-empty array. */
@@ -192,4 +193,18 @@ export function calculateGroupTaskPert(
 		workdays: expectedHours / hoursPerDay,
 		confidenceIntervals: confidenceIntervals(expectedHours, deviation, true),
 	};
+}
+
+/**
+ * Each task's share of the total variance, largest first.
+ * All shares are 0 when the total variance is 0.
+ */
+export function varianceShares(result: TaskPertResult): VarianceShare[] {
+	return result.tasks
+		.map((task) => ({
+			title: task.title,
+			variance: task.variance,
+			share: result.variance > 0 ? task.variance / result.variance : 0,
+		}))
+		.sort((a, b) => b.variance - a.variance);
 }

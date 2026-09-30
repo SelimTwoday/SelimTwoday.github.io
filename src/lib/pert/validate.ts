@@ -1,7 +1,8 @@
-import { calculateGroupTaskPert, calculatePert, calculateTaskPert } from './calculate';
+import { calculateGroupTaskPert, calculatePert, calculateTaskPert, pertFormula, pertVariance } from './calculate';
 import { parseSwedishNumber } from './format';
-import { DEFAULT_HOURS_PER_DAY } from './types';
+import { DEFAULT_HOURS_PER_DAY, DEFAULT_MEETING_HOURS_PER_PERSON } from './types';
 import type {
+	PertResult,
 	FieldError,
 	GroupTaskPertValidationResult,
 	ParticipantEstimate,
@@ -14,6 +15,10 @@ import type {
 	TaskRowInput,
 	TaskGroupInput,
 	TaskGroupEstimate,
+	GroupTaskPertResult,
+	Preview,
+	RowEvaluation,
+	TaskPertResult,
 } from './types';
 
 function parseField(
@@ -221,4 +226,160 @@ export function validateGroupTaskPertForm(
 		};
 	}
 	return { valid: true, errors: [], groups, result };
+}
+
+/**
+ * Evaluates one estimate row on its own, so the UI can show the expected
+ * time while the user types even if other rows are unfinished.
+ */
+export function evaluateRow(row: ParticipantRowInput): RowEvaluation {
+	const fields = ['o', 'm', 'p'] as const;
+	const blank = (state: RowEvaluation['state'], errors: FieldError[] = []): RowEvaluation => ({
+		state,
+		expectedHours: null,
+		standardDeviation: null,
+		errors,
+	});
+
+	const filled = fields.filter((key) => row[key].trim() !== '');
+	if (filled.length === 0) return blank('empty');
+
+	const errors: FieldError[] = [];
+	const values: Record<(typeof fields)[number], number | null> = { o: null, m: null, p: null };
+	for (const key of filled) values[key] = parseField(key, row[key], errors);
+	if (errors.length > 0) return blank('invalid', errors);
+	if (filled.length < fields.length) return blank('incomplete');
+
+	const { o, m, p } = values as Record<(typeof fields)[number], number>;
+	if (!(o <= m && m <= p)) {
+		return blank('order', [{
+			field: 'order',
+			code: 'order',
+			message: 'Ordningen måste vara Optimistisk ≤ Mest sannolik ≤ Pessimistisk.',
+		}]);
+	}
+	return {
+		state: 'ok',
+		expectedHours: pertFormula(o, m, p),
+		standardDeviation: Math.sqrt(pertVariance(o, p)),
+		errors: [],
+	};
+}
+
+function previewHoursPerDay(input: string): number {
+	const parsed = parseSwedishNumber(input);
+	return parsed !== null && parsed > 0 ? parsed : DEFAULT_HOURS_PER_DAY;
+}
+
+function isFiniteTaskResult(result: TaskPertResult | GroupTaskPertResult): boolean {
+	return [result.expectedHours, result.variance, result.workdays].every(Number.isFinite);
+}
+
+/** PERT Pro preview: computes over the rows that are usable right now. */
+export function previewTaskPert(
+	rows: TaskRowInput[],
+	hoursPerDayInput: string,
+): Preview<TaskPertResult> {
+	const evaluations = rows.map(evaluateRow);
+	const usable: TaskEstimate[] = [];
+	rows.forEach((row, index) => {
+		if (evaluations[index].state !== 'ok') return;
+		usable.push({
+			title: row.title.trim(),
+			o: parseSwedishNumber(row.o) as number,
+			m: parseSwedishNumber(row.m) as number,
+			p: parseSwedishNumber(row.p) as number,
+		});
+	});
+
+	const calculated = usable.length > 0
+		? calculateTaskPert(usable, previewHoursPerDay(hoursPerDayInput))
+		: null;
+	const result = calculated && isFiniteTaskResult(calculated) ? calculated : null;
+	return {
+		result,
+		complete: validateTaskPertForm(rows, hoursPerDayInput).valid,
+		excludedRows: rows.length - usable.length,
+		hasErrors: evaluations.some((evaluation) => evaluation.state === 'invalid' || evaluation.state === 'order'),
+	};
+}
+
+/**
+ * Enterprise preview: a person counts when they have a name and at least one
+ * usable row. Rows that are not usable are left out of that person's total.
+ */
+export function previewGroupPert(
+	inputs: TaskGroupInput[],
+	hoursPerDayInput: string,
+): Preview<GroupTaskPertResult> {
+	let excludedRows = 0;
+	let hasErrors = false;
+	const groups: TaskGroupEstimate[] = [];
+
+	for (const input of inputs) {
+		const evaluations = input.tasks.map(evaluateRow);
+		if (evaluations.some((evaluation) => evaluation.state === 'invalid' || evaluation.state === 'order')) {
+			hasErrors = true;
+		}
+		const tasks: TaskEstimate[] = [];
+		input.tasks.forEach((task, index) => {
+			if (evaluations[index].state !== 'ok') return;
+			tasks.push({
+				title: task.title.trim(),
+				o: parseSwedishNumber(task.o) as number,
+				m: parseSwedishNumber(task.m) as number,
+				p: parseSwedishNumber(task.p) as number,
+			});
+		});
+
+		const name = input.name.trim();
+		if (name && tasks.length > 0) {
+			groups.push({ name, tasks });
+			excludedRows += input.tasks.length - tasks.length;
+		} else {
+			excludedRows += input.tasks.length;
+		}
+	}
+
+	const calculated = groups.length > 0
+		? calculateGroupTaskPert(groups, previewHoursPerDay(hoursPerDayInput))
+		: null;
+	const result = calculated && isFiniteTaskResult(calculated) ? calculated : null;
+	return {
+		result,
+		complete: validateGroupTaskPertForm(inputs, hoursPerDayInput).valid,
+		excludedRows,
+		hasErrors,
+	};
+}
+
+/** Group estimate preview over the participant rows that are usable right now. */
+export function previewParticipantPert(
+	rows: ParticipantRowInput[],
+	settingsInput: PertSettingsInput,
+): Preview<PertResult> {
+	const evaluations = rows.map(evaluateRow);
+	const usable: ParticipantEstimate[] = [];
+	rows.forEach((row, index) => {
+		if (evaluations[index].state !== 'ok') return;
+		usable.push({
+			o: parseSwedishNumber(row.o) as number,
+			m: parseSwedishNumber(row.m) as number,
+			p: parseSwedishNumber(row.p) as number,
+		});
+	});
+
+	const meeting = parseSwedishNumber(settingsInput.meetingHoursPerPerson);
+	const settings: PertSettings = {
+		meetingHoursPerPerson: meeting !== null && meeting >= 0 ? meeting : DEFAULT_MEETING_HOURS_PER_PERSON,
+		hoursPerDay: previewHoursPerDay(settingsInput.hoursPerDay),
+	};
+	const calculated = usable.length > 0 ? calculatePert(usable, settings) : null;
+	const result = calculated && Number.isFinite(calculated.finalHours) ? calculated : null;
+	return {
+		result,
+		complete: validatePertForm(rows, settingsInput).valid,
+		excludedRows: rows.length - usable.length,
+		hasErrors: evaluations.some((evaluation) => evaluation.state === 'invalid' || evaluation.state === 'order'),
+	};
 }

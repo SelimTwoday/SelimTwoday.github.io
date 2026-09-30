@@ -10,6 +10,8 @@ export interface ParticipantRowInput {
 	o: string;
 	m: string;
 	p: string;
+	/** Optional display name. Never affects the calculation. */
+	name?: string;
 }
 
 /** A named subtask with a parsed three-point estimate. */
@@ -192,3 +194,43 @@ export type TaskPertValidationResult = TaskPertValidationSuccess | TaskPertValid
 
 export const DEFAULT_MEETING_HOURS_PER_PERSON = 1;
 export const DEFAULT_HOURS_PER_DAY = 8;
+
+/** Limits applied when parsing share links, so a crafted URL cannot freeze the page. */
+export const MAX_GROUPS = 50;
+export const MAX_TASKS_PER_GROUP = 200;
+export const MAX_PARTICIPANTS = 100;
+export const MAX_TEXT_LENGTH = 200;
+export const MAX_QUERY_LENGTH = 32000;
+
+export type RowState = 'empty' | 'incomplete' | 'invalid' | 'order' | 'ok';
+
+export interface RowEvaluation {
+	state: RowState;
+	/** Only set when state === 'ok'. */
+	expectedHours: number | null;
+	standardDeviation: number | null;
+	/** Field keys are 'o' | 'm' | 'p' | 'order' (no row index). */
+	errors: FieldError[];
+}
+
+export interface Preview<T> {
+	/** null when no row is usable. */
+	result: T | null;
+	/** True when the whole form is valid, so sharing is allowed. */
+	complete: boolean;
+	/** Rows that were left out of the result. */
+	excludedRows: number;
+	/** Some row is 'invalid' or 'order'. */
+	hasErrors: boolean;
+}
+
+export interface VarianceShare {
+	title: string;
+	variance: number;
+	share: number;
+}
+
+export interface ScopeGap {
+	groupIndex: number;
+	missingTitles: string[];
+}

@@ -3,3 +3,4 @@ export * from './calculate';
 export * from './format';
 export * from './validate';
 export * from './url';
+export * from './scope';

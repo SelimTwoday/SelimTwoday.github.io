@@ -19,7 +19,7 @@ describe('buildPertQueryString', () => {
 
 		const query = buildPertQueryString(participants, settings);
 
-		expect(query).toBe('e=6,14,34&e=8,16,28&e=8,16,40');
+		expect(query).toBe('mode=group&e=6,14,34&e=8,16,28&e=8,16,40');
 	});
 
 	it('omits settings params when they equal the defaults (1 and 8)', () => {
@@ -48,7 +48,7 @@ describe('buildPertShareUrl', () => {
 			meetingHoursPerPerson: 1,
 			hoursPerDay: 8,
 		});
-		expect(url).toBe('https://example.com/verktyg/pert/?e=1,2,3');
+		expect(url).toBe('https://example.com/verktyg/pert/?mode=group&e=1,2,3');
 	});
 });
 
@@ -90,8 +90,8 @@ describe('parsePertSearchParams + round trip', () => {
 	it('ignores malformed e params with the wrong number of parts', () => {
 		const parsed = parsePertSearchParams('e=6,14,34&e=1,2&e=8,16,28');
 		expect(parsed.rows).toEqual([
-			{ o: '6', m: '14', p: '34' },
-			{ o: '8', m: '16', p: '28' },
+			{ o: '6', m: '14', p: '34', name: '' },
+			{ o: '8', m: '16', p: '28', name: '' },
 		]);
 	});
 
@@ -99,7 +99,7 @@ describe('parsePertSearchParams + round trip', () => {
 		const params = new URLSearchParams();
 		params.append('e', '1,2,3');
 		const parsed = parsePertSearchParams(params);
-		expect(parsed.rows).toEqual([{ o: '1', m: '2', p: '3' }]);
+		expect(parsed.rows).toEqual([{ o: '1', m: '2', p: '3', name: '' }]);
 	});
 
 	it('round-trips titled tasks without affecting the legacy URL format', () => {

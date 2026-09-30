@@ -1,7 +1,13 @@
 import {
 	DEFAULT_HOURS_PER_DAY,
 	DEFAULT_MEETING_HOURS_PER_PERSON,
+	MAX_GROUPS,
+	MAX_PARTICIPANTS,
+	MAX_QUERY_LENGTH,
+	MAX_TASKS_PER_GROUP,
+	MAX_TEXT_LENGTH,
 	type ParticipantEstimate,
+	type ParticipantRowInput,
 	type PertSettings,
 	type TaskEstimate,
 	type TaskGroupEstimate,
@@ -17,6 +23,22 @@ const HOURS_PER_DAY_PARAM = 'h';
 const MODE_PARAM = 'mode';
 const TASK_PARAM = 't';
 const GROUP_PARAM = 'g';
+
+/** URL token for the group estimate mode. The internal PertMode stays 'participants'. */
+export const GROUP_MODE_TOKEN = 'group';
+
+/** Maps the `mode` URL token to the internal mode. Unknown or missing tokens mean 'participants'. */
+export const URL_TOKEN_TO_MODE: ReadonlyMap<string, PertMode> = new Map<string, PertMode>([
+	[GROUP_MODE_TOKEN, 'participants'],
+	['tasks', 'tasks'],
+	['grouptasks', 'grouptasks'],
+]);
+
+/** Trims a display name and keeps it within the URL limit; '' means "no name". */
+function normalizeName(name: string | undefined): string {
+	const trimmed = (name ?? '').trim().slice(0, MAX_TEXT_LENGTH);
+	return typeof trimmed.toWellFormed === 'function' ? trimmed.toWellFormed() : trimmed;
+}
 
 /** Formats a number for URL usage: plain dot-decimal, no trailing zeros. */
 function numberToUrlToken(value: number): string {
@@ -38,21 +60,24 @@ function numberToUrlToken(value: number): string {
 /**
  * Builds the query string (without leading "?") that reproduces the given
  * participants and settings exactly, e.g.
- * "e=6,14,34&e=8,16,28&e=8,16,40". The meeting time and hours/day are only
+ * "mode=group&e=6,14,34&e=8,16,28&e=8,16,40". A non-empty name is appended as
+ * a fourth, percent-encoded value. The meeting time and hours/day are only
  * included when they differ from the defaults, keeping URLs short.
  */
 export function buildPertQueryString(
-	participants: ParticipantEstimate[],
+	participants: (ParticipantEstimate & { name?: string })[],
 	settings: PertSettings,
 ): string {
 	// Built manually (not via URLSearchParams.toString()) so commas stay
 	// literal in the query string, matching the required "?e=6,14,34&..."
 	// shape instead of being percent-encoded as "%2C".
-	const segments: string[] = [];
+	const segments: string[] = [`${MODE_PARAM}=${GROUP_MODE_TOKEN}`];
 
 	for (const participant of participants) {
-		const token = [participant.o, participant.m, participant.p].map(numberToUrlToken).join(',');
-		segments.push(`${ESTIMATE_PARAM}=${token}`);
+		const values = [participant.o, participant.m, participant.p].map(numberToUrlToken);
+		const name = normalizeName(participant.name);
+		if (name) values.push(encodeURIComponent(name));
+		segments.push(`${ESTIMATE_PARAM}=${values.join(',')}`);
 	}
 
 	if (settings.meetingHoursPerPerson !== DEFAULT_MEETING_HOURS_PER_PERSON) {
@@ -69,7 +94,7 @@ export function buildPertQueryString(
 /** Builds a full shareable URL for the given page origin+pathname. */
 export function buildPertShareUrl(
 	baseUrl: string,
-	participants: ParticipantEstimate[],
+	participants: (ParticipantEstimate & { name?: string })[],
 	settings: PertSettings,
 ): string {
 	const query = buildPertQueryString(participants, settings);
@@ -125,7 +150,7 @@ export function buildGroupTaskPertShareUrl(
 export interface ParsedPertUrl {
 	mode: PertMode;
 	/** Raw string rows suitable for prefilling the form, "" when absent. */
-	rows: { o: string; m: string; p: string }[];
+	rows: (ParticipantRowInput & { name: string })[];
 	tasks: { title: string; o: string; m: string; p: string }[];
 	groups: TaskGroupInput[];
 	errors: string[];
@@ -160,47 +185,83 @@ function parseGroupValue(value: unknown): TaskGroupInput | null {
 	if (!Array.isArray(value) || value.length !== 2 || typeof value[0] !== 'string' || !Array.isArray(value[1])) {
 		return null;
 	}
+	if (value[1].length > MAX_TASKS_PER_GROUP) return null;
 	const tasks = value[1].map(parseTaskValue);
 	if (tasks.some((task) => task === null)) return null;
 	return { name: value[0], tasks: tasks.filter((task): task is TaskRowInput => task !== null) };
+}
+
+/** Returns the first limit violation as a Swedish message, or null when the query is within limits. */
+function findLimitViolation(params: URLSearchParams, queryLength: number): string | null {
+	if (queryLength > MAX_QUERY_LENGTH) return 'Länken är för lång för att öppnas.';
+	if (params.getAll(ESTIMATE_PARAM).length > MAX_PARTICIPANTS) {
+		return `Länken innehåller fler än ${MAX_PARTICIPANTS} deltagare.`;
+	}
+	if (params.getAll(TASK_PARAM).length > MAX_TASKS_PER_GROUP) {
+		return `Länken innehåller fler än ${MAX_TASKS_PER_GROUP} deluppgifter.`;
+	}
+	if (params.getAll(GROUP_PARAM).length > MAX_GROUPS) {
+		return `Länken innehåller fler än ${MAX_GROUPS} personer.`;
+	}
+	return null;
 }
 
 /**
  * Parses PERT parameters out of a URLSearchParams (or query string). Values
  * are returned as raw strings — validation/parsing of Swedish decimals is
  * intentionally left to validatePertForm so URL input goes through the same
- * rules as manual input.
+ * rules as manual input. A link that exceeds the size limits yields an error
+ * and no rows, never a partial parse.
  */
 export function parsePertSearchParams(
 	search: string | URLSearchParams,
 ): ParsedPertUrl {
+	const queryText = typeof search === 'string' ? search : search.toString();
 	const params = typeof search === 'string' ? new URLSearchParams(search) : search;
 
-	const rows = params
-		.getAll(ESTIMATE_PARAM)
-		.map((token) => token.split(','))
-		.filter((parts) => parts.length === 3)
-		.map(([o, m, p]) => ({ o: o.trim(), m: m.trim(), p: p.trim() }));
+	const modeParam = params.get(MODE_PARAM);
+	const mode: PertMode = (modeParam !== null && URL_TOKEN_TO_MODE.get(modeParam)) || 'participants';
+	const meetingHoursPerPerson =
+		params.get(MEETING_PARAM) ?? String(DEFAULT_MEETING_HOURS_PER_PERSON);
+	const hoursPerDay = params.get(HOURS_PER_DAY_PARAM) ?? String(DEFAULT_HOURS_PER_DAY);
+
+	const violation = findLimitViolation(params, queryText.length);
+	if (violation) {
+		return { mode, rows: [], tasks: [], groups: [], errors: [violation], meetingHoursPerPerson, hoursPerDay };
+	}
 
 	const errors: string[] = [];
+	const empty = (message: string): ParsedPertUrl => (
+		{ mode, rows: [], tasks: [], groups: [], errors: [message], meetingHoursPerPerson, hoursPerDay }
+	);
+	const tooLongMessage = `Ett namn eller en titel i länken är längre än ${MAX_TEXT_LENGTH} tecken.`;
+
+	const rows: ParsedPertUrl['rows'] = [];
+	for (const token of params.getAll(ESTIMATE_PARAM)) {
+		const parts = token.split(',');
+		if (parts.length < 3) continue;
+		const [o, m, p] = parts;
+		const name = parts.slice(3).join(',').trim();
+		if (name.length > MAX_TEXT_LENGTH) return empty(tooLongMessage);
+		rows.push({ o: o.trim(), m: m.trim(), p: p.trim(), name });
+	}
+
 	const tasks = params.getAll(TASK_PARAM).map((token) => parseTaskValue(decodeJson(token)));
 	const groups = params.getAll(GROUP_PARAM).map((token) => parseGroupValue(decodeJson(token)));
 	if (tasks.some((task) => task === null)) errors.push('Länken innehåller en ogiltig deluppgift.');
 	if (groups.some((group) => group === null)) errors.push('Länken innehåller en ogiltig användare eller deluppgiftslista.');
 
-	const meetingHoursPerPerson =
-		params.get(MEETING_PARAM) ?? String(DEFAULT_MEETING_HOURS_PER_PERSON);
-	const hoursPerDay = params.get(HOURS_PER_DAY_PARAM) ?? String(DEFAULT_HOURS_PER_DAY);
+	const validTasks = tasks.filter((task): task is TaskRowInput => task !== null);
+	const validGroups = groups.filter((group): group is TaskGroupInput => group !== null);
+	const tooLong = (text: string) => text.length > MAX_TEXT_LENGTH;
+	if (
+		validTasks.some((task) => tooLong(task.title)) ||
+		validGroups.some((group) => tooLong(group.name) || group.tasks.some((task) => tooLong(task.title)))
+	) {
+		return empty(tooLongMessage);
+	}
 
-	const modeParam = params.get(MODE_PARAM);
-	const mode: PertMode = modeParam === 'tasks' || modeParam === 'grouptasks' ? modeParam : 'participants';
-
-	return {
-		mode, rows,
-		tasks: tasks.filter((task): task is TaskRowInput => task !== null),
-		groups: groups.filter((group): group is TaskGroupInput => group !== null),
-		errors, meetingHoursPerPerson, hoursPerDay,
-	};
+	return { mode, rows, tasks: validTasks, groups: validGroups, errors, meetingHoursPerPerson, hoursPerDay };
 }
 
 export type TaskLinkImportResult =
@@ -219,6 +280,9 @@ export function parseTaskLinkImport(value: string, fallbackName: string): TaskLi
 		return { valid: false, message: 'Endast http- och https-länkar kan importeras.' };
 	}
 	const mode = url.searchParams.get(MODE_PARAM);
+	if (mode === GROUP_MODE_TOKEN || (mode === null && url.searchParams.has(ESTIMATE_PARAM))) {
+		return { valid: false, message: 'Gruppestimat-länkar kan inte importeras som användare.' };
+	}
 	if (mode !== 'tasks' && mode !== 'grouptasks') {
 		return { valid: false, message: 'Länken måste använda mode=tasks eller mode=grouptasks.' };
 	}
