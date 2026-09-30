@@ -779,6 +779,15 @@ details[open] > summary > .pert-chevron {
 	color: var(--pert-muted);
 }
 
+.pert-head__sd {
+	margin-left: 0.75rem;
+	font-size: 1.25rem;
+	font-weight: 400;
+	letter-spacing: 0;
+	color: var(--pert-muted);
+	white-space: nowrap;
+}
+
 .pert-head__sub {
 	display: flex;
 	align-items: center;

@@ -37,7 +37,7 @@ export function paintHead(root: HTMLElement, preview: Preview<unknown>, values: 
 
 	setText(root, 'headline', formatSwedishNumber(values.headline, 1));
 	setText(root, 'days', formatSwedishNumber(values.days, 1));
-	setText(root, 'sd', formatSwedishNumber(values.standardDeviation, 2));
+	setText(root, 'sd', formatSwedishNumber(values.standardDeviation, 1));
 	body.hidden = false;
 	empty.hidden = true;
 	const label = preliminaryLabel(preview);
