@@ -1,12 +1,14 @@
 import { formatSwedishNumber, parseSwedishNumber } from '../../../lib/pert/format';
+import { confidenceIntervals } from '../../../lib/pert/calculate';
 import { buildPertQueryString } from '../../../lib/pert/url';
 import { evaluateRow, previewParticipantPert, validatePertForm } from '../../../lib/pert/validate';
 import { MAX_PARTICIPANTS } from '../../../lib/pert/types';
 import type { ParticipantRowInput } from '../../../lib/pert/types';
 import { el, pluralize, query, queryAll, setText } from '../ui/dom';
 import { createEstimateTable, type EstimateRow } from '../ui/estimate-table';
-import { bindInlineNumber } from '../ui/inline-number';
+import { createMeetingControl } from '../ui/meeting';
 import { showRowProblems } from '../ui/messages';
+import { createResultBand } from '../ui/result-band';
 import { paintHead } from '../ui/result-head';
 import { bindShare } from '../ui/share';
 import type { ModeController, PertContext } from './context';
@@ -25,10 +27,7 @@ export function createGroupMode(root: HTMLElement, ctx: PertContext, initial: Gr
 	const disagree = query<HTMLElement>(root, '[data-disagree]');
 	const disagreeText = query<HTMLElement>(root, '[data-disagree-text]');
 	const uncertainty = query<HTMLElement>(root, '[data-out="uncertainty"]');
-	const barWork = query<HTMLElement>(root, '[data-bar-work]');
-	const barMeeting = query<HTMLElement>(root, '[data-bar-meeting]');
 	const exportList = query<HTMLElement>(root, '[data-export-list]');
-	const meetingInput = query<HTMLInputElement>(root, '[data-meeting]');
 	const checks = queryAll<HTMLButtonElement>(root, '[data-check]');
 	const checklistCount = query<HTMLElement>(root, '[data-checklist-count]');
 	let lastQuery: string | null = null;
@@ -48,8 +47,9 @@ export function createGroupMode(root: HTMLElement, ctx: PertContext, initial: Gr
 			: Array.from({ length: EMPTY_ROWS }, blankRow),
 	);
 
-	const meeting = bindInlineNumber(meetingInput, { allowZero: true, onInput: () => ctx.changed() });
-	meeting.setValue(initial.meeting);
+	const meeting = createMeetingControl(root, () => ctx.changed());
+	meeting.set({ hours: initial.meeting });
+	const band = createResultBand(query<HTMLElement>(root, '[data-band]'));
 
 	const share = bindShare(
 		query<HTMLElement>(root, '[data-share]'),
@@ -72,7 +72,7 @@ export function createGroupMode(root: HTMLElement, ctx: PertContext, initial: Gr
 		showRowProblems(rowError, evaluations);
 		count.textContent = pluralize(rows.length, 'person', 'personer');
 
-		const settingsInput = { meetingHoursPerPerson: meetingInput.value, hoursPerDay: ctx.getHoursPerDay() };
+		const settingsInput = { meetingHoursPerPerson: meeting.hoursText(), hoursPerDay: ctx.getHoursPerDay() };
 		const preview = previewParticipantPert(inputs, settingsInput);
 		const validation = validatePertForm(inputs, settingsInput);
 		lastQuery = validation.valid
@@ -110,7 +110,7 @@ export function createGroupMode(root: HTMLElement, ctx: PertContext, initial: Gr
 			result && {
 				headline: result.finalHours,
 				days: result.workdays,
-				likely: { lo: result.finalLowHours, hi: result.finalHighHours },
+				standardDeviation: result.pertStdDev,
 			},
 		);
 		if (!result || !shown) {
@@ -129,9 +129,12 @@ export function createGroupMode(root: HTMLElement, ctx: PertContext, initial: Gr
 			e: format(result.pertHours),
 		});
 
-		setText(root, 'pert', format(result.pertHours));
-		setText(root, 'people', String(result.peopleCount));
-		setText(root, 'meetTotal', format(result.meetingTotalHours));
+		meeting.paint({ work: result.pertHours, meeting: result.meetingTotalHours, people: result.peopleCount });
+		band.update({
+			mean: result.finalHours,
+			standardDeviation: result.pertStdDev,
+			intervals: confidenceIntervals(result.finalHours, result.pertStdDev, true),
+		});
 		setText(root, 'avgO', format(result.averageO));
 		setText(root, 'avgM', format(result.averageM));
 		setText(root, 'avgP', format(result.averageP));
@@ -141,10 +144,6 @@ export function createGroupMode(root: HTMLElement, ctx: PertContext, initial: Gr
 			`(${format(result.averageO)} + 4 × ${format(result.averageM)} + ${format(result.averageP)}) / 6 = ${format(result.pertHours)}`,
 		);
 		uncertainty.hidden = !result.highUncertainty;
-
-		const workShare = result.finalHours > 0 ? (result.pertHours / result.finalHours) * 100 : 100;
-		barWork.style.width = `${workShare.toFixed(2)}%`;
-		barMeeting.style.width = `${(100 - workShare).toFixed(2)}%`;
 
 		const named = evaluations.flatMap((evaluation, index) => {
 			if (evaluation.state !== 'ok' || evaluation.expectedHours === null) return [];

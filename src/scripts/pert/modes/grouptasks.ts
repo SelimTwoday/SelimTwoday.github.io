@@ -1,4 +1,5 @@
 import { formatSwedishNumber } from '../../../lib/pert/format';
+import { groupVarianceShares, withMeeting } from '../../../lib/pert/calculate';
 import { findScopeGaps } from '../../../lib/pert/scope';
 import { MAX_GROUPS, MAX_TASKS_PER_GROUP, MAX_TEXT_LENGTH } from '../../../lib/pert/types';
 import type { TaskGroupInput, TaskRowInput } from '../../../lib/pert/types';
@@ -11,10 +12,12 @@ import {
 } from '../../../lib/pert/validate';
 import { alertIcon, el, pluralize, query, setText } from '../ui/dom';
 import { createEstimateTable, type EstimateRow } from '../ui/estimate-table';
+import { createMeetingControl, type MeetingState } from '../ui/meeting';
 import { showRowProblems } from '../ui/messages';
 import { createResultBand } from '../ui/result-band';
 import { paintHead } from '../ui/result-head';
 import { bindShare } from '../ui/share';
+import { renderVarianceShares } from '../ui/variance-list';
 import type { ModeController, PertContext } from './context';
 
 const EMPTY_ROWS = 3;
@@ -42,10 +45,15 @@ interface PersonChip {
 	total: HTMLElement;
 }
 
+export interface GroupTasksInitial {
+	groups: TaskGroupInput[];
+	meeting: MeetingState;
+}
+
 export function createGroupTasksMode(
 	root: HTMLElement,
 	ctx: PertContext,
-	initial: TaskGroupInput[],
+	initial: GroupTasksInitial,
 	gag: { show: () => void },
 ): ModeController {
 	const panel = query<HTMLElement>(root, '[data-panel]');
@@ -67,6 +75,9 @@ export function createGroupTasksMode(
 	const disagreementFlag = query<HTMLElement>(root, '[data-out="disagreement"]');
 	const uncertaintyFlag = query<HTMLElement>(root, '[data-out="uncertainty"]');
 	const band = createResultBand(query<HTMLElement>(root, '[data-band]'));
+	const shares = query<HTMLElement>(root, '[data-shares]');
+	const meeting = createMeetingControl(root, () => ctx.changed());
+	meeting.set(initial.meeting);
 
 	const chips = new Map<number, PersonChip>();
 	let nextId = 1;
@@ -82,8 +93,8 @@ export function createGroupTasksMode(
 	});
 	const defaultPerson = (): Person => newPerson('Person 1', Array.from({ length: EMPTY_ROWS }, blankRow), true);
 
-	let people: Person[] = initial.length > 0
-		? initial.map((group) => newPerson(
+	let people: Person[] = initial.groups.length > 0
+		? initial.groups.map((group) => newPerson(
 			group.name,
 			group.tasks.length > 0
 				? group.tasks.map((task) => ({ name: task.title, o: task.o, m: task.m, p: task.p }))
@@ -361,35 +372,47 @@ export function createGroupTasksMode(
 			table.setFooter({ label: 'Summa', o: '–', m: '–', p: '–', e: '–' });
 		}
 
-		const preview = previewGroupPert(groups, hoursPerDay);
+		const rawPreview = previewGroupPert(groups, hoursPerDay);
+		const complete = rawPreview.complete && meeting.isValid();
+		const preview = { ...rawPreview, complete };
 		const validation = validateGroupTaskPertForm(groups, hoursPerDay);
-		lastQuery = validation.valid
-			? buildGroupTaskPertQueryString(validation.groups, validation.result.hoursPerDay)
+		const meetingInput = meeting.parsed();
+		lastQuery = validation.valid && meeting.isValid()
+			? buildGroupTaskPertQueryString(
+				validation.groups,
+				validation.result.hoursPerDay,
+				meetingInput ? { hoursPerPerson: meetingInput.hoursPerPerson } : undefined,
+			)
 			: null;
-		share.setEnabled(preview.complete);
+		share.setEnabled(complete);
 		share.setNoticeVisible(true);
 		share.clearStatus();
 
 		const result = preview.result;
+		const meetingTotal = result && meetingInput ? meetingInput.hoursPerPerson * result.groups.length : 0;
+		const adjusted = result
+			? withMeeting(result.expectedHours, result.standardDeviation, meetingTotal, result.hoursPerDay)
+			: null;
 		const shown = paintHead(
 			root,
 			preview,
-			result && {
-				headline: result.expectedHours,
-				days: result.workdays,
+			result && adjusted && {
+				headline: adjusted.finalHours,
+				days: adjusted.workdays,
 				standardDeviation: result.standardDeviation,
 			},
 		);
-		if (!result || !shown) {
+		if (!result || !adjusted || !shown) {
 			ctx.setSummary(null);
 			return;
 		}
 
 		const format = (value: number): string => formatSwedishNumber(value, 1);
+		meeting.paint({ work: result.expectedHours, meeting: meetingTotal, people: result.groups.length });
 		band.update({
-			mean: result.expectedHours,
+			mean: adjusted.finalHours,
 			standardDeviation: result.standardDeviation,
-			intervals: result.confidenceIntervals,
+			intervals: adjusted.confidenceIntervals,
 		});
 		setText(root, 'avgO', format(result.averageO));
 		setText(root, 'avgM', format(result.averageM));
@@ -399,6 +422,7 @@ export function createGroupTasksMode(
 		setText(root, 'within', formatSwedishNumber(Math.sqrt(result.withinVariance), 2));
 		setText(root, 'between', formatSwedishNumber(Math.sqrt(result.betweenVariance), 2));
 		paintDots(result);
+		renderVarianceShares(shares, groupVarianceShares(result));
 
 		disagreementFlag.hidden = !result.teamDisagreement;
 		disagreementFlag.replaceChildren(
@@ -408,7 +432,7 @@ export function createGroupTasksMode(
 		);
 		uncertaintyFlag.hidden = !result.highUncertainty;
 
-		ctx.setSummary(`${format(result.expectedHours)} h ± ${formatSwedishNumber(result.standardDeviation, 1)}`);
+		ctx.setSummary(`${format(adjusted.finalHours)} h ± ${formatSwedishNumber(result.standardDeviation, 1)}`);
 	}
 
 	personName.maxLength = MAX_TEXT_LENGTH;

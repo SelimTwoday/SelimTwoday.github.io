@@ -97,11 +97,30 @@ controllers.set(
 );
 controllers.set(
 	'tasks',
-	createTasksMode(workspaces.get('tasks') as HTMLElement, context, usable ? parsed.tasks : []),
+	createTasksMode(workspaces.get('tasks') as HTMLElement, context, {
+		tasks: usable ? parsed.tasks : [],
+		meeting: {
+			enabled: usable && parsed.mode === 'tasks' && parsed.meetingPresent,
+			hours: parsed.meetingHoursPerPerson,
+			people: parsed.meetingPeople,
+		},
+	}),
 );
 controllers.set(
 	'grouptasks',
-	createGroupTasksMode(workspaces.get('grouptasks') as HTMLElement, context, usable ? parsed.groups : [], initEnterpriseGag()),
+	createGroupTasksMode(
+		workspaces.get('grouptasks') as HTMLElement,
+		context,
+		{
+			groups: usable ? parsed.groups : [],
+			meeting: {
+				enabled: usable && parsed.mode === 'grouptasks' && parsed.meetingPresent,
+				hours: parsed.meetingHoursPerPerson,
+				people: parsed.meetingPeople,
+			},
+		},
+		initEnterpriseGag(),
+	),
 );
 
 syncHoursFields();

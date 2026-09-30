@@ -1,10 +1,9 @@
 ---
 export interface Props {
 	label: string;
-	tail: 'sd' | 'likely';
 }
 
-const { label, tail } = Astro.props;
+const { label } = Astro.props;
 ---
 
 <div class="pert-head">
@@ -13,9 +12,7 @@ const { label, tail } = Astro.props;
 	<p class="pert-head__sub">
 		≈ <span class="pert-num" data-out="days">–</span> arbetsdagar à
 		<input class="pert-inline pert-num" data-hpd inputmode="decimal" autocomplete="off" maxlength="6" aria-label="Timmar per arbetsdag" />
-		h
-		{tail === 'sd' && <span> · ± <span class="pert-num" data-out="sd">–</span> h</span>}
-		{tail === 'likely' && <span> · sannolikt <span class="pert-num" data-out="likely">–</span> h</span>}
+		h · ± <span class="pert-num" data-out="sd">–</span> h
 	</p>
 	<p class="pert-prelim" data-out="prelim" hidden></p>
 </div>

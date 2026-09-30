@@ -923,17 +923,45 @@ details[open] > summary > .pert-chevron {
 	background: var(--pert-swatch-meeting);
 }
 
-.pert-line--meeting {
-	gap: 0.375rem;
-	flex-wrap: wrap;
+.pert-meeting {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
 }
 
-.pert-line--meeting > * {
+.pert-meeting__block {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.pert-meeting__block .pert-line {
+	margin-block: -0.25rem;
+}
+
+.pert-meeting__add {
+	align-self: flex-start;
+	margin-left: -0.875rem;
+	margin-block: -0.5rem;
+}
+
+.pert-meeting__remove {
+	opacity: 1;
+	margin-right: -0.5rem;
+	margin-block: -0.5rem;
+}
+
+.pert-meeting__inputs {
+	display: flex;
+	align-items: center;
+	gap: 0.375rem;
+	margin: -0.25rem 0 0 1.25rem;
 	white-space: nowrap;
 }
 
-.pert-result__body > .pert-line {
-	margin-block: -0.5rem;
+.pert-inline--narrow {
+	width: 40px;
+	height: 32px;
 }
 
 /* Confidence band */
@@ -1026,22 +1054,28 @@ details[open] > summary > .pert-chevron {
 
 /* Variance shares */
 
-.pert-shares__head {
+.pert-shares summary {
 	display: flex;
-	justify-content: space-between;
-	align-items: baseline;
-	margin-bottom: 0.75rem;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 32px;
+	margin-bottom: 0.5rem;
 	font-size: 0.8125rem;
 	color: var(--pert-muted);
+	cursor: pointer;
+	list-style: none;
 }
 
-.pert-shares__head h3 {
-	margin: 0;
-	font-size: 0.8125rem;
-	font-weight: 400;
+.pert-shares summary::-webkit-details-marker {
+	display: none;
 }
 
-.pert-shares__head span {
+.pert-shares__title {
+	color: var(--pert-text-soft);
+}
+
+.pert-shares__hint {
+	margin-left: auto;
 	font-size: 0.75rem;
 	color: var(--pert-faint);
 }
@@ -1361,10 +1395,6 @@ details[open] > summary > .pert-chevron {
 		flex: 1;
 		justify-content: center;
 		padding: 0 0.5rem;
-	}
-
-	.pert-line--meeting {
-		flex-wrap: wrap;
 	}
 }
 

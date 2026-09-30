@@ -1,0 +1,52 @@
+---
+export interface Props {
+	/** Unique id prefix for the form controls. */
+	prefix: string;
+	/** Optional meetings start hidden behind an "add" button. */
+	optional: boolean;
+	/** True when the number of attendees is typed in; otherwise it is counted from the form. */
+	editablePeople: boolean;
+}
+
+const { prefix, optional, editablePeople } = Astro.props;
+---
+
+<div class="pert-meeting" data-meeting-root>
+	{optional && (
+		<button type="button" class="pert-ghost pert-meeting__add" data-meeting-add data-export-hide>
+			<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M7 2v10M2 7h10"></path></svg>
+			Lägg till estimeringsmöte
+		</button>
+	)}
+	<div class="pert-meeting__block" data-meeting-block hidden={optional}>
+		<div class="pert-split" aria-hidden="true">
+			<div class="pert-split__work" data-bar-work></div>
+			<div class="pert-split__meeting" data-bar-meeting></div>
+		</div>
+		<div class="pert-line">
+			<span class="pert-swatch pert-swatch--work"></span>
+			<span>{optional ? 'Arbete' : 'Arbete (PERT)'}</span>
+			<span class="pert-num pert-line__end"><span data-out="work">–</span> h</span>
+		</div>
+		<div class="pert-line">
+			<span class="pert-swatch pert-swatch--meeting"></span>
+			<span>Estimeringsmöte</span>
+			<span class="pert-num pert-line__end"><span data-out="meetTotal">–</span> h</span>
+			{optional && (
+				<button type="button" class="pert-row__remove pert-meeting__remove" data-meeting-remove data-export-hide aria-label="Ta bort estimeringsmöte">
+					<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"></path></svg>
+				</button>
+			)}
+		</div>
+		<div class="pert-meeting__inputs">
+			{editablePeople ? (
+				<input class="pert-inline pert-inline--narrow pert-num" data-meeting-people inputmode="numeric" autocomplete="off" maxlength="3" aria-label="Antal deltagare i mötet" />
+			) : (
+				<span class="pert-num pert-muted" data-out="people">0</span>
+			)}
+			<span class="pert-num pert-muted">×</span>
+			<input id={`${prefix}-meeting-hours`} class="pert-inline pert-inline--wide pert-num" data-meeting inputmode="decimal" autocomplete="off" maxlength="6" aria-label="Timmar per person i mötet" aria-describedby={`${prefix}-meeting-unit`} />
+			<span id={`${prefix}-meeting-unit`} class="pert-muted">h/person</span>
+		</div>
+	</div>
+</div>

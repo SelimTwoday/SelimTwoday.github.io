@@ -1,25 +1,34 @@
 import { formatSwedishNumber } from '../../../lib/pert/format';
-import { varianceShares } from '../../../lib/pert/calculate';
+import { varianceShares, withMeeting } from '../../../lib/pert/calculate';
 import { buildTaskPertQueryString } from '../../../lib/pert/url';
 import { evaluateRow, previewTaskPert, validateTaskPertForm } from '../../../lib/pert/validate';
 import { MAX_TASKS_PER_GROUP } from '../../../lib/pert/types';
 import type { TaskRowInput } from '../../../lib/pert/types';
-import { el, pluralize, query, setText } from '../ui/dom';
+import { pluralize, query, setText } from '../ui/dom';
 import { createEstimateTable } from '../ui/estimate-table';
+import { createMeetingControl, type MeetingState } from '../ui/meeting';
 import { showRowProblems } from '../ui/messages';
 import { createResultBand } from '../ui/result-band';
 import { paintHead } from '../ui/result-head';
 import { bindShare } from '../ui/share';
+import { renderVarianceShares } from '../ui/variance-list';
 import type { ModeController, PertContext } from './context';
 
 const EMPTY_ROWS = 3;
 
-export function createTasksMode(root: HTMLElement, ctx: PertContext, initial: TaskRowInput[]): ModeController {
+export interface TasksInitial {
+	tasks: TaskRowInput[];
+	meeting: MeetingState;
+}
+
+export function createTasksMode(root: HTMLElement, ctx: PertContext, initial: TasksInitial): ModeController {
 	const panel = query<HTMLElement>(root, '[data-panel]');
 	const shares = query<HTMLElement>(root, '[data-shares]');
 	const count = query<HTMLElement>(root, '[data-count]');
 	const rowError = query<HTMLElement>(root, '[data-row-error]');
 	const band = createResultBand(query<HTMLElement>(root, '[data-band]'));
+	const meeting = createMeetingControl(root, () => ctx.changed());
+	meeting.set(initial.meeting);
 	let lastQuery: string | null = null;
 
 	const table = createEstimateTable({
@@ -31,8 +40,8 @@ export function createTasksMode(root: HTMLElement, ctx: PertContext, initial: Ta
 		maxRows: MAX_TASKS_PER_GROUP,
 	});
 	table.setRows(
-		initial.length > 0
-			? initial.map((task) => ({ name: task.title, o: task.o, m: task.m, p: task.p }))
+		initial.tasks.length > 0
+			? initial.tasks.map((task) => ({ name: task.title, o: task.o, m: task.m, p: task.p }))
 			: Array.from({ length: EMPTY_ROWS }, () => ({ name: '', o: '', m: '', p: '' })),
 	);
 
@@ -51,23 +60,36 @@ export function createTasksMode(root: HTMLElement, ctx: PertContext, initial: Ta
 		count.textContent = pluralize(rows.length, 'uppgift', 'uppgifter');
 
 		const hoursPerDay = ctx.getHoursPerDay();
-		const preview = previewTaskPert(inputs, hoursPerDay);
+		const rawPreview = previewTaskPert(inputs, hoursPerDay);
+		const complete = rawPreview.complete && meeting.isValid();
+		const preview = { ...rawPreview, complete };
 		const validation = validateTaskPertForm(inputs, hoursPerDay);
-		lastQuery = validation.valid ? buildTaskPertQueryString(validation.tasks, validation.result.hoursPerDay) : null;
-		share.setEnabled(preview.complete);
+		const meetingInput = meeting.parsed();
+		lastQuery = validation.valid && meeting.isValid()
+			? buildTaskPertQueryString(
+				validation.tasks,
+				validation.result.hoursPerDay,
+				meetingInput ? { hoursPerPerson: meetingInput.hoursPerPerson, people: meetingInput.people ?? undefined } : undefined,
+			)
+			: null;
+		share.setEnabled(complete);
 		share.clearStatus();
 
 		const result = preview.result;
+		const meetingTotal = meetingInput ? meetingInput.hoursPerPerson * (meetingInput.people ?? 0) : 0;
+		const adjusted = result
+			? withMeeting(result.expectedHours, result.standardDeviation, meetingTotal, result.hoursPerDay)
+			: null;
 		const shown = paintHead(
 			root,
 			preview,
-			result && {
-				headline: result.expectedHours,
-				days: result.workdays,
+			result && adjusted && {
+				headline: adjusted.finalHours,
+				days: adjusted.workdays,
 				standardDeviation: result.standardDeviation,
 			},
 		);
-		if (!result || !shown) {
+		if (!result || !adjusted || !shown) {
 			table.setFooter({ label: 'Summa', o: '–', m: '–', p: '–', e: '–' });
 			ctx.setSummary(null);
 			return;
@@ -82,33 +104,22 @@ export function createTasksMode(root: HTMLElement, ctx: PertContext, initial: Ta
 			e: format(result.expectedHours),
 		});
 
+		meeting.paint({ work: result.expectedHours, meeting: meetingTotal, people: meetingInput?.people ?? 0 });
 		band.update({
-			mean: result.expectedHours,
+			mean: adjusted.finalHours,
 			standardDeviation: result.standardDeviation,
-			intervals: result.confidenceIntervals,
+			intervals: adjusted.confidenceIntervals,
 		});
-
-		const ranked = varianceShares(result);
-		const largest = ranked.length > 0 ? ranked[0].share : 0;
-		shares.replaceChildren(...ranked.map((item, index) => {
-			const scaled = largest > 0 ? (item.share / largest) * 100 : 0;
-			const fill = el('div', { class: 'pert-share-item__fill' });
-			fill.style.width = `${scaled.toFixed(1)}%`;
-			return el('li', { class: 'pert-share-item', attrs: { 'data-top': String(index === 0 && largest > 0) } }, [
-				el('div', { class: 'pert-share-item__row' }, [
-					el('span', { class: 'pert-share-item__title', text: item.title || 'Namnlös deluppgift' }),
-					el('span', { class: 'pert-num', text: `${Math.round(item.share * 100)} %` }),
-				]),
-				el('div', { class: 'pert-share-item__bar' }, [fill]),
-			]);
-		}));
-
+		setText(root, 'avgO', format(result.totalO));
+		setText(root, 'avgM', format(result.totalM));
+		setText(root, 'avgP', format(result.totalP));
+		renderVarianceShares(shares, varianceShares(result));
 		setText(
 			root,
 			'formula',
 			`σ = √Σ((P − O) / 6)² = ${formatSwedishNumber(result.standardDeviation, 2)} h`,
 		);
-		ctx.setSummary(`${format(result.expectedHours)} h ± ${formatSwedishNumber(result.standardDeviation, 1)}`);
+		ctx.setSummary(`${format(adjusted.finalHours)} h ± ${formatSwedishNumber(result.standardDeviation, 1)}`);
 	}
 
 	return {

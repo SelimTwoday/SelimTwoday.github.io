@@ -70,7 +70,7 @@ export function createResultBand(root: HTMLElement): ResultBand {
 				}
 				labels.get(level)!.textContent = interval.confidence;
 				ranges.get(level)!.textContent =
-					`${formatSwedishNumber(Math.max(0, interval.lowerHours), 1)}–${formatSwedishNumber(interval.upperHours, 1)} h`;
+					`${formatSwedishNumber(Math.max(0, interval.lowerHours), 1)} – ${formatSwedishNumber(interval.upperHours, 1)} h`;
 			}
 
 			marker.style.left = `${percent(mean).toFixed(2)}%`;

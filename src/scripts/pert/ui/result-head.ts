@@ -5,10 +5,7 @@ import { query, setText } from './dom';
 export interface HeadValues {
 	headline: number;
 	days: number;
-	/** ± σ, shown in PERT Pro and Enterprise. */
-	standardDeviation?: number;
-	/** "sannolikt" range, shown in Gruppestimat. */
-	likely?: { lo: number; hi: number };
+	standardDeviation: number;
 }
 
 /** Text for the preliminary label, or null when the form is complete. */
@@ -31,10 +28,7 @@ export function paintHead(root: HTMLElement, preview: Preview<unknown>, values: 
 	if (!values) {
 		setText(root, 'headline', '–');
 		setText(root, 'days', '–');
-		const sd = root.querySelector<HTMLElement>('[data-out="sd"]');
-		if (sd) sd.textContent = '–';
-		const likely = root.querySelector<HTMLElement>('[data-out="likely"]');
-		if (likely) likely.textContent = '–';
+		setText(root, 'sd', '–');
 		body.hidden = true;
 		empty.hidden = false;
 		prelim.hidden = true;
@@ -43,13 +37,7 @@ export function paintHead(root: HTMLElement, preview: Preview<unknown>, values: 
 
 	setText(root, 'headline', formatSwedishNumber(values.headline, 1));
 	setText(root, 'days', formatSwedishNumber(values.days, 1));
-	const sd = root.querySelector<HTMLElement>('[data-out="sd"]');
-	if (sd && values.standardDeviation !== undefined) sd.textContent = formatSwedishNumber(values.standardDeviation, 2);
-	const likely = root.querySelector<HTMLElement>('[data-out="likely"]');
-	if (likely && values.likely) {
-		likely.textContent = `${formatSwedishNumber(values.likely.lo, 1)}–${formatSwedishNumber(values.likely.hi, 1)}`;
-	}
-
+	setText(root, 'sd', formatSwedishNumber(values.standardDeviation, 2));
 	body.hidden = false;
 	empty.hidden = true;
 	const label = preliminaryLabel(preview);

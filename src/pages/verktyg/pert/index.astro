@@ -3,6 +3,9 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import EnterpriseGag from '../../../components/EnterpriseGag.astro';
 import EstimateTable from '../../../components/pert/EstimateTable.astro';
 import ResultHead from '../../../components/pert/ResultHead.astro';
+import ResultMeeting from '../../../components/pert/ResultMeeting.astro';
+import ResultShares from '../../../components/pert/ResultShares.astro';
+import ResultTriple from '../../../components/pert/ResultTriple.astro';
 import ShareBar from '../../../components/pert/ShareBar.astro';
 import '../../../styles/pert.css';
 
@@ -84,32 +87,13 @@ const checklist = [
 				</div>
 
 				<aside class="pert-result pert-card" data-panel aria-label="Resultat">
-					<ResultHead label="Gemensamt estimat" tail="likely" />
+					<ResultHead label="Gemensamt estimat" />
 					<p class="pert-empty" data-empty>Fyll i en rad för att se ett estimat.</p>
 					<div class="pert-result__body" data-result-body>
-						<div class="pert-split" aria-hidden="true">
-							<div class="pert-split__work" data-bar-work></div>
-							<div class="pert-split__meeting" data-bar-meeting></div>
-						</div>
-						<div class="pert-line">
-							<span class="pert-swatch pert-swatch--work"></span>
-							<span>Arbete (PERT)</span>
-							<span class="pert-num pert-line__end"><span data-out="pert">–</span> h</span>
-						</div>
-						<div class="pert-line pert-line--meeting">
-							<span class="pert-swatch pert-swatch--meeting"></span>
-							<label for="pert-meeting">Estimeringsmöte</label>
-							<span class="pert-num pert-muted"><span data-out="people">0</span> ×</span>
-							<input id="pert-meeting" class="pert-inline pert-inline--wide pert-num" data-meeting inputmode="decimal" autocomplete="off" maxlength="6" aria-describedby="pert-meeting-unit" />
-							<span id="pert-meeting-unit" class="pert-muted">h/person</span>
-							<span class="pert-num pert-line__end"><span data-out="meetTotal">–</span> h</span>
-						</div>
+						<ResultMeeting prefix="group" optional={false} editablePeople={false} />
+						<div data-band></div>
 						<hr class="pert-rule" />
-						<div class="pert-triple">
-							<div><span>Optimistisk</span><span class="pert-num"><span data-out="avgO">–</span> h</span></div>
-							<div><span>Mest trolig</span><span class="pert-num"><span data-out="avgM">–</span> h</span></div>
-							<div><span>Pessimistisk</span><span class="pert-num"><span data-out="avgP">–</span> h</span></div>
-						</div>
+						<ResultTriple />
 						<p class="pert-flag" data-out="uncertainty" hidden>
 							<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"></circle><path d="M8 4.5v4M8 11v.01"></path></svg>
 							Stort spann mellan optimistiskt och pessimistiskt.
@@ -120,7 +104,7 @@ const checklist = [
 								Hur räknas det?
 							</summary>
 							<p class="pert-formula pert-num" data-out="formula"></p>
-							<p>O, M och P är medelvärden av deltagarnas bedömningar. Mötestiden läggs ovanpå. Intervallet är ± en standardavvikelse, (P − O) / 6, och bygger på antagandet att bedömningarna är normalfördelade.</p>
+							<p>O, M och P är medelvärden av deltagarnas bedömningar. Mötestiden läggs ovanpå och påverkar inte osäkerheten. Intervallen är ± 1, 2 och 3 standardavvikelser, (P − O) / 6, och bygger på en normalapproximation: riktmärken, inte garantier.</p>
 						</details>
 						<div class="pert-export-only" data-export-list></div>
 					</div>
@@ -142,25 +126,21 @@ const checklist = [
 				</div>
 
 				<aside class="pert-result pert-card" data-panel aria-label="Resultat">
-					<ResultHead label="Förväntad total tid" tail="sd" />
+					<ResultHead label="Förväntad total tid" />
 					<p class="pert-empty" data-empty>Fyll i en rad för att se ett estimat.</p>
 					<div class="pert-result__body" data-result-body>
+						<ResultMeeting prefix="tasks" optional={true} editablePeople={true} />
 						<div data-band></div>
 						<hr class="pert-rule" />
-						<div class="pert-shares">
-							<div class="pert-shares__head">
-								<h3>Var sitter osäkerheten?</h3>
-								<span>andel av variansen</span>
-							</div>
-							<ul class="pert-shares__list" data-shares></ul>
-						</div>
+						<ResultTriple />
+						<ResultShares />
 						<details class="pert-how" data-export-hide>
 							<summary>
 								<svg class="pert-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 2.5L7.5 6 4 9.5"></path></svg>
 								Hur räknas det?
 							</summary>
 							<p class="pert-formula pert-num" data-out="formula"></p>
-							<p>Varje deluppgift ger (O + 4M + P) / 6 och σ = (P − O) / 6. Tiderna summeras och varianserna läggs ihop innan roten dras. Det förutsätter att deluppgifterna är oberoende av varandra: hänger de ihop underskattas osäkerheten och 95 %-intervallet blir för smalt. Intervallen är riktmärken, inte garantier.</p>
+							<p>Varje deluppgift ger (O + 4M + P) / 6 och σ = (P − O) / 6. Tiderna summeras och varianserna läggs ihop innan roten dras. Det förutsätter att deluppgifterna är oberoende av varandra: hänger de ihop underskattas osäkerheten och 95 %-intervallet blir för smalt. Mötestiden läggs ovanpå och påverkar inte osäkerheten. Intervallen är riktmärken, inte garantier.</p>
 						</details>
 					</div>
 					<ShareBar />
@@ -218,16 +198,13 @@ const checklist = [
 				</div>
 
 				<aside class="pert-result pert-card" data-panel aria-label="Resultat">
-					<ResultHead label="Förväntad projekttid" tail="sd" />
+					<ResultHead label="Förväntad projekttid" />
 					<p class="pert-empty" data-empty>Fyll i en rad för att se ett estimat.</p>
 					<div class="pert-result__body" data-result-body>
+						<ResultMeeting prefix="grouptasks" optional={true} editablePeople={false} />
 						<div data-band></div>
 						<hr class="pert-rule" />
-						<div class="pert-triple">
-							<div><span>Optimistisk</span><span class="pert-num"><span data-out="avgO">–</span> h</span></div>
-							<div><span>Mest trolig</span><span class="pert-num"><span data-out="avgM">–</span> h</span></div>
-							<div><span>Pessimistisk</span><span class="pert-num"><span data-out="avgP">–</span> h</span></div>
-						</div>
+						<ResultTriple />
 						<div class="pert-people-totals">
 							<div class="pert-people-totals__head">
 								<span>Personernas totaler</span>
@@ -239,6 +216,7 @@ const checklist = [
 							</div>
 							<ul class="pert-people-totals__list" data-person-list></ul>
 						</div>
+						<ResultShares />
 						<p class="pert-flag" data-out="disagreement" hidden></p>
 						<p class="pert-flag" data-out="uncertainty" hidden>
 							<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"></circle><path d="M8 4.5v4M8 11v.01"></path></svg>
@@ -249,8 +227,8 @@ const checklist = [
 								<svg class="pert-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 2.5L7.5 6 4 9.5"></path></svg>
 								Hur räknas det?
 							</summary>
-							<p>Varje deluppgift ger (O + 4M + P) / 6 och σ = (P − O) / 6. Personens total är summan, gruppens är medelvärdet av totalerna. Osäkerheten väger ihop variansen inom personerna (<span class="pert-num" data-out="within">–</span> h) och skillnaden mellan dem (<span class="pert-num" data-out="between">–</span> h).</p>
-							<p>Modellen förutsätter att deluppgifterna är oberoende av varandra: hänger de ihop underskattas osäkerheten. Intervallen bygger på en normalapproximation och är riktmärken, inte garantier, särskilt med få personer eller stor oenighet.</p>
+							<p>Varje deluppgift ger (O + 4M + P) / 6 och σ = (P − O) / 6. Personens total är summan, gruppens är medelvärdet av totalerna. Osäkerheten väger ihop variansen inom personerna (<span class="pert-num" data-out="within">–</span> h) och skillnaden mellan dem (<span class="pert-num" data-out="between">–</span> h). I "Var sitter osäkerheten?" delas varje deluppgifts varians på antalet personer, och oenigheten mellan personerna redovisas som en egen rad.</p>
+							<p>Modellen förutsätter att deluppgifterna är oberoende av varandra: hänger de ihop underskattas osäkerheten. Mötestiden läggs ovanpå och påverkar inte osäkerheten. Intervallen bygger på en normalapproximation och är riktmärken, inte garantier, särskilt med få personer eller stor oenighet.</p>
 						</details>
 					</div>
 					<ShareBar notice="Länken innehåller namn och estimat." />

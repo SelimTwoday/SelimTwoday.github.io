@@ -74,6 +74,24 @@ Länkar över gränserna (50 personer, 200 deluppgifter per person, 100
 deltagare, 200 tecken per namn/titel, 32 000 tecken totalt) avvisas med ett
 felmeddelande i stället för att tolkas delvis.
 
+**Gemensam resultatpanel.** Alla tre lägen visar samma komponenter: stort tal
+med arbetsdagar (`h=` delas mellan lägena) och ± σ, ett estimeringsmöte,
+konfidensstapeln med 68 / 95 / 99,7 %-intervall (skrivs "a – b h"),
+optimistiskt / mest troligt / pessimistiskt och en fällbar "Hur räknas det?".
+PERT Pro och Enterprise har dessutom en fällbar **Var sitter osäkerheten?**
+(öppen som standard). I Enterprise delas varje deluppgifts varians på antalet
+personer, deluppgifter med samma titel slås ihop, och oenigheten mellan
+personerna redovisas som en egen rad; andelarna summerar till 100 %.
+
+**Estimeringsmöte.** I Gruppestimat räknas mötet alltid (deltagare × timmar per
+person). I PERT Pro och Enterprise läggs det till med "Lägg till
+estimeringsmöte" och tas bort med ×. Mötestiden är en fast kostnad som skjuter
+estimat och intervall uppåt utan att göra dem bredare. PERT Pro anger antal
+deltagare själv; Enterprise räknar sina personer. I länken skrivs `m=` (timmar
+per person, alltid med när ett möte lagts till) och för PERT Pro `n=` (antal
+deltagare). Länkar utan `m=` i dessa lägen har inget möte, så äldre länkar ger
+samma resultat som förut.
+
 **Preliminära resultat.** Medan formuläret är ofullständigt räknas de rader
 som är giltiga och resultatet märks "Preliminärt · N rader räknas inte".
 Delning, PNG och adressuppdatering kräver ett fullständigt, giltigt formulär.
