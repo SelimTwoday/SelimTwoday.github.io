@@ -1,0 +1,35 @@
+---
+export interface Props {
+	nameHeading: string;
+	addLabel: string;
+	footLabel?: string;
+}
+
+const { nameHeading, addLabel, footLabel = 'Summa' } = Astro.props;
+---
+
+<div class="pert-table" data-table>
+	<div class="pert-table__head" aria-hidden="true">
+		<span class="pert-table__name-head">{nameHeading}</span>
+		<span title="Optimistisk">Opt.</span>
+		<span title="Mest trolig">Trolig</span>
+		<span title="Pessimistisk">Pess.</span>
+		<span title="PERT-medel (O + 4M + P) / 6">Förv.</span>
+		<span></span>
+	</div>
+	<div class="pert-table__rows" data-rows role="list"></div>
+	<div class="pert-table__add">
+		<button type="button" class="pert-ghost" data-add>
+			<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M7 2v10M2 7h10"></path></svg>
+			{addLabel}
+		</button>
+	</div>
+	<div class="pert-table__foot" data-foot>
+		<span class="pert-table__foot-label" data-foot-label>{footLabel}</span>
+		<span class="pert-num" data-foot-o>–</span>
+		<span class="pert-num" data-foot-m>–</span>
+		<span class="pert-num" data-foot-p>–</span>
+		<span class="pert-num pert-table__foot-e" data-foot-e>–</span>
+		<span></span>
+	</div>
+</div>

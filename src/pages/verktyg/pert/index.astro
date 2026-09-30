@@ -1,1468 +1,262 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import EnterpriseGag from '../../../components/EnterpriseGag.astro';
+import EstimateTable from '../../../components/pert/EstimateTable.astro';
+import ResultHead from '../../../components/pert/ResultHead.astro';
+import ShareBar from '../../../components/pert/ShareBar.astro';
+import '../../../styles/pert.css';
+
+const checklist = [
+	'Själva arbetet',
+	'Riskgenomgång',
+	'Databashämtning',
+	'Tester',
+	'PR-granskning',
+	'Spetskompetens',
+	'Domänkunskap',
+	'Beroenden',
+	'Tekniska frågetecken',
+	'Integration',
+	'Dokumentation',
+];
 ---
 
 <BaseLayout
 	title="PERT-kalkylator"
-	description="Räkna ut PERT-estimat för grupper och deluppgifter, eller jämför användarnas projektuppskattningar med PERT Pro Enterprise."
+	description="Räkna ut PERT-estimat för grupper och deluppgifter, eller jämför personers projektuppskattningar med PERT Pro Enterprise."
 >
-	<div class="container page">
-		<header class="page__header">
-			<h1>PERT-kalkylator</h1>
-			<p class="page__lead">
-				Estimera tillsammans, bryt ned arbetet med PERT Pro eller jämför flera
-				användares deluppgifter med PERT Pro Enterprise.
-			</p>
-		</header>
+	<div class="pert-page">
+		<div class="container pert-shell">
+			<header class="pert-header">
+				<div class="pert-header__text">
+					<h1>PERT-kalkylator</h1>
+					<p data-lead>Varje deltagare uppskattar hela uppgiften. Värdena vägs ihop till ett gemensamt estimat.</p>
+				</div>
+				<nav class="pert-modes" aria-label="Läge">
+					<a class="pert-modes__link" href="?mode=group" data-mode-link="participants">Gruppestimat</a>
+					<a class="pert-modes__link" href="?mode=tasks" data-mode-link="tasks">PERT Pro</a>
+					<a class="pert-modes__link" href="?mode=grouptasks" data-mode-link="grouptasks">Enterprise</a>
+				</nav>
+			</header>
 
-		<fieldset class="mode-switch" aria-label="Typ av PERT-estimat">
-			<label class="mode-switch__option">
-				<input type="radio" name="pert-mode" value="participants" checked />
-				<span>
-					<strong>Gruppestimat</strong>
-					<small>Sammanväg deltagarnas bedömningar</small>
-				</span>
-			</label>
-			<label class="mode-switch__option">
-				<input type="radio" name="pert-mode" value="tasks" />
-				<span>
-					<strong>PERT Pro</strong>
-					<small>Summera deluppgifter och osäkerhet</small>
-				</span>
-			</label>
-			<label class="mode-switch__option">
-				<input type="radio" name="pert-mode" value="grouptasks" />
-				<span>
-					<span class="mode-switch__name"><strong>PERT Pro</strong> Enterprise</span>
-					<small>Egna deluppgifter, gemensamt estimat</small>
-				</span>
-			</label>
-		</fieldset>
-		<p id="pert-url-status" class="status-message" data-tone="error" role="alert" hidden></p>
+			<p class="pert-url-error" data-url-error role="alert" hidden></p>
 
-		<div class="pert-workspace">
-			<div class="pert-workspace__form">
-				<form id="participant-form" class="pert-form" novalidate>
-					<div class="participants card">
-						<div class="participants__header">
-							<div class="participants__heading">
-								<h2>Deltagare</h2>
-								<span id="participant-count" class="participants__count" aria-live="polite"
-									>1 person</span
-								>
-							</div>
-							<button
-								type="button"
-								id="add-row-button"
-								class="participants__add"
-								aria-label="Lägg till deltagare"
-								title="Lägg till deltagare"
-							>
-								<span aria-hidden="true" >+</span>
-							</button>
+			<!-- Gruppestimat -->
+			<section class="pert-workspace" data-workspace="participants" aria-label="Gruppestimat">
+				<div class="pert-input">
+					<div class="pert-card">
+						<div class="pert-card__head">
+							<h2>Deltagare</h2>
+							<span class="pert-count" data-count></span>
 						</div>
-						<div class="participant-grid">
-							<div class="participant-columns" aria-hidden="true">
-								<span>Optimistisk</span>
-								<span>Mest trolig</span>
-								<span>Pessimistisk</span>
-								<span></span>
-							</div>
-							<ul id="participant-rows" class="participant-rows"></ul>
+						<EstimateTable nameHeading="Namn" addLabel="Lägg till deltagare" footLabel="Medel" />
+					</div>
+
+					<p class="pert-note" data-row-error role="status" hidden></p>
+
+					<div class="pert-alert" data-disagree role="status" hidden>
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"></circle><path d="M8 4.5v4M8 11v.01"></path></svg>
+						<p data-disagree-text></p>
+					</div>
+
+					<details class="pert-card pert-checklist" data-checklist>
+						<summary>
+							<svg class="pert-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 2.5L7.5 6 4 9.5"></path></svg>
+							<span class="pert-checklist__title">Har ni räknat med allt?</span>
+							<span class="pert-num pert-checklist__count" data-checklist-count>0 av {checklist.length}</span>
+						</summary>
+						<div class="pert-chips">
+							{checklist.map((label) => (
+								<button type="button" class="pert-chip" aria-pressed="false" data-check>
+									<svg class="pert-chip__tick" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5"></path></svg>
+									{label}
+								</button>
+							))}
 						</div>
-					</div>
-
-					<p class="pert-estimate-reminder">
-						Tänk på att inkludera tiden för själva arbetsinsatsen, genomgång av risker,
-						eventuell databashämtning, skapande av tester och PR-granskning. 
-						Väg även in behov av spetskompetens och domänkunskap,
-						beroenden, tekniska frågetecken, integration och dokumentation.
-					</p>
-
-					<div id="pert-warnings" class="result-warnings" aria-live="polite">
-						<p
-							id="uncertainty-warning"
-							class="status-message result-warning"
-							data-tone="warning"
-							hidden
-						></p>
-						<p
-							id="disagreement-warning"
-							class="status-message result-warning"
-							data-tone="warning"
-							hidden
-						></p>
-					</div>
-
-					<div class="settings card">
-						<h2 class="settings__title">Inställningar</h2>
-						<div class="settings__grid">
-							<label class="field">
-								<span>Mötestid per person (timmar)</span>
-								<input
-									type="text"
-									id="meeting-hours-input"
-									inputmode="decimal"
-									autocomplete="off"
-									value="1"
-									aria-describedby="meeting-hours-error"
-								/>
-								<p id="meeting-hours-error" class="field__error" aria-live="polite"></p>
-							</label>
-						</div>
-					</div>
-
-				</form>
-
-				<form id="task-form" class="pert-form" novalidate hidden>
-					<div class="participants">
-						<div class="participants__header">
-							<div>
-								<h2>Deluppgifter</h2>
-								<p class="participants__description">
-									Varje rad beräknas separat. Variansen summeras innan standardavvikelsen tas fram.
-								</p>
-							</div>
-						</div>
-						<ul id="task-rows" class="participant-rows"></ul>
-						<button type="button" id="add-task-button" class="button button-secondary task-rows__add">
-							+ Lägg till deluppgift
-						</button>
-					</div>
-				</form>
-
-				<form id="group-task-form" class="pert-form" novalidate hidden>
-					<div class="enterprise-intro">
-						<h2>Gruppens deluppgifter</h2>
-						<p class="participants__description">
-							Alla uppskattar samma projektomfattning. Varje användare väger lika,
-							oavsett antal deluppgifter. Användarnas totaler jämförs – de summeras inte.
-						</p>
-					</div>
-					<div class="group-import">
-						<button id="group-import-toggle" type="button" class="button button-secondary task-rows__add group-import__toggle" aria-expanded="false" aria-controls="group-import-panel">
-							Importera ett estimat
-						</button>
-						<section id="group-import-panel" class="group-import__panel card" aria-labelledby="group-import-heading" hidden>
-							<h3 id="group-import-heading">Importera ett estimat</h3>
-							<p class="participants__description">
-								En PERT Pro-länk läggs till som en användare. En Enterprise-länk
-								lägger till alla sina användare utan att skriva över befintliga estimat.
-							</p>
-							<label class="field">
-								<span>PERT-länk</span>
-								<input id="group-import-url" type="url" placeholder="https://…?mode=tasks…" autocomplete="off" aria-describedby="group-import-status" />
-							</label>
-							<div class="group-import__actions">
-								<label class="field">
-									<span>Användarnamn för PERT Pro-länk (valfritt)</span>
-									<input id="group-import-name" type="text" placeholder="T.ex. Anna" autocomplete="off" />
-								</label>
-								<button id="group-import-button" type="button" class="button button-secondary">Importera</button>
-							</div>
-						</section>
-						<p id="group-import-status" class="action-status" role="status" aria-live="polite"></p>
-					</div>
-					<div class="participants__header">
-						<h3>Användare <span id="group-user-count" class="participants__count"></span></h3>
-					</div>
-					<div id="task-groups" class="task-groups"></div>
-					<button id="add-task-group-button" type="button" class="button button-secondary task-rows__add">
-						+ Lägg till användare
-					</button>
-					<div class="settings card group-settings">
-						<label class="field">
-							<span>Timmar per arbetsdag</span>
-							<input id="group-hours-per-day" type="text" inputmode="decimal" value="8" autocomplete="off" aria-describedby="group-hours-error" />
-							<p id="group-hours-error" class="field__error" aria-live="polite"></p>
-						</label>
-					</div>
-				</form>
-
-				<template id="task-group-template">
-					<section class="task-group card">
-						<div class="task-group__header">
-							<label class="field task-group__name-field">
-								<span>Användare</span>
-								<input type="text" class="task-group__name" autocomplete="off" />
-							</label>
-							<button type="button" class="task-group__remove participant-row__remove" aria-label="Ta bort användare" title="Ta bort användare">
-								<span aria-hidden="true">✕</span>
-							</button>
-						</div>
-						<p class="task-group__error field__error" aria-live="polite"></p>
-						<p class="task-group__total"></p>
-						<details class="task-group__details" open>
-							<summary>Deluppgifter <span class="task-group__count"></span></summary>
-							<ul class="participant-rows task-group__rows"></ul>
-							<button type="button" class="button button-secondary task-rows__add task-group__add-task">
-								+ Lägg till deluppgift
-							</button>
-						</details>
-						<button type="button" class="task-group__reuse button button-secondary">
-							Återanvänd deluppgifter för ny användare
-						</button>
-					</section>
-				</template>
-
-				<div id="pert-errors" class="status-message" data-tone="error" role="alert" hidden></div>
-				<p id="task-reorder-hint" class="visually-hidden">
-					Dra kortets yta för att ändra ordning. Med kortet i fokus kan du också använda Alt och upp- eller nedpil.
-				</p>
-				<p id="task-reorder-status" class="visually-hidden" role="status" aria-live="polite"></p>
-
-				<template id="row-template">
-					<li class="participant-row">
-						<label class="field participant-row__field">
-							<span class="visually-hidden">Optimistisk</span>
-							<span class="input-control">
-								<span class="input-control__prefix" aria-hidden="true">O</span>
-								<input
-									type="text"
-									class="field-o input-control__input"
-									inputmode="decimal"
-									autocomplete="off"
-								/>
-							</span>
-						</label>
-						<label class="field participant-row__field">
-							<span class="visually-hidden">Mest trolig</span>
-							<span class="input-control">
-								<span class="input-control__prefix" aria-hidden="true">M</span>
-								<input
-									type="text"
-									class="field-m input-control__input"
-									inputmode="decimal"
-									autocomplete="off"
-								/>
-							</span>
-						</label>
-						<label class="field participant-row__field">
-							<span class="visually-hidden">Pessimistisk</span>
-							<span class="input-control">
-								<span class="input-control__prefix" aria-hidden="true">P</span>
-								<input
-									type="text"
-									class="field-p input-control__input"
-									inputmode="decimal"
-									autocomplete="off"
-								/>
-							</span>
-						</label>
-						<button type="button" class="participant-row__remove" aria-label="Ta bort deltagare">
-							✕
-						</button>
-						<p class="participant-row__error field__error" aria-live="polite"></p>
-					</li>
-				</template>
-
-				<template id="task-row-template">
-					<li class="participant-row task-row card">
-						<label class="field task-row__title-field">
-							<span class="visually-hidden">Titel</span>
-							<input
-								type="text"
-								class="field-title"
-								autocomplete="off"
-							/>
-						</label>
-						<div class="task-row__actions">
-							<button
-								type="button"
-								class="participant-row__remove"
-								aria-label="Ta bort deluppgift"
-								title="Ta bort deluppgift"
-							>
-								<span aria-hidden="true">✕</span>
-							</button>
-						</div>
-						<div class="participant-row__fields">
-							<label class="field">
-								<span>Optimistisk</span>
-								<span class="input-control">
-									<span class="input-control__prefix" aria-hidden="true">O</span>
-									<input type="text" class="field-o input-control__input" inputmode="decimal" autocomplete="off" />
-								</span>
-							</label>
-							<label class="field">
-								<span>Mest trolig</span>
-								<span class="input-control">
-									<span class="input-control__prefix" aria-hidden="true">M</span>
-									<input type="text" class="field-m input-control__input" inputmode="decimal" autocomplete="off" />
-								</span>
-							</label>
-							<label class="field">
-								<span>Pessimistisk</span>
-								<span class="input-control">
-									<span class="input-control__prefix" aria-hidden="true">P</span>
-									<input type="text" class="field-p input-control__input" inputmode="decimal" autocomplete="off" />
-								</span>
-							</label>
-						</div>
-						<p class="participant-row__error field__error" aria-live="polite"></p>
-					</li>
-				</template>
-
-				<dialog id="remove-task-dialog" class="confirmation-dialog" aria-labelledby="remove-task-title" aria-describedby="remove-task-copy">
-					<div class="confirmation-dialog__content">
-						<h2 id="remove-task-title">Ta bort deluppgift?</h2>
-						<p id="remove-task-copy">
-							Är du säker? Inmatade O-, M- och P-värden försvinner.
-						</p>
-						<div class="confirmation-dialog__actions">
-							<button type="button" id="cancel-remove-task" class="button button-secondary">
-								Avbryt
-							</button>
-							<button type="button" id="confirm-remove-task" class="button button-danger">
-								Ta bort
-							</button>
-						</div>
-					</div>
-				</dialog>
-				<EnterpriseGag />
-
-			</div>
-
-			<div class="pert-workspace__result">
-				<div id="pert-result-empty" class="card result-empty">
-					<p id="result-empty-copy">Fyll i minst en deltagare med giltiga O-, M- och P-värden så visas resultatet här.</p>
+					</details>
 				</div>
 
-				<section id="pert-result-panel" class="card result-panel" hidden aria-labelledby="result-heading">
-					<h2 id="result-heading">Resultat</h2>
-					<div id="participant-result">
-						<p class="result-panel__subtitle">Baserat på medelvärdet av alla inmatade O-, M- och P-värden.</p>
-
-						<div class="result-averages">
-							<div class="result-box">
-								<div class="result-box__label">Optimistisk</div>
-								<div class="result-box__value" id="avg-o">–</div>
-							</div>
-							<div class="result-box">
-								<div class="result-box__label">Mest sannolik</div>
-								<div class="result-box__value" id="avg-m">–</div>
-							</div>
-							<div class="result-box">
-								<div class="result-box__label">Pessimistisk</div>
-								<div class="result-box__value" id="avg-p">–</div>
-							</div>
+				<aside class="pert-result pert-card" data-panel aria-label="Resultat">
+					<ResultHead label="Gemensamt estimat" tail="likely" />
+					<p class="pert-empty" data-empty>Fyll i en rad för att se ett estimat.</p>
+					<div class="pert-result__body" data-result-body>
+						<div class="pert-split" aria-hidden="true">
+							<div class="pert-split__work" data-bar-work></div>
+							<div class="pert-split__meeting" data-bar-meeting></div>
 						</div>
-
-						<p class="result-formula" id="pert-formula">PERT = (O + 4×M + P) / 6</p>
-
-						<div class="result-final">
-							<div class="result-final__item">
-								<div class="result-final__label">PERT (utan möten)</div>
-								<div class="result-final__value" id="pert-hours">–</div>
-								<div class="result-final__sub" id="pert-days"></div>
-							</div>
-							<div class="result-final__item">
-								<div class="result-final__label">Tid lagd på estimering</div>
-								<div class="result-final__value" id="meeting-hours">–</div>
-								<div class="result-final__sub" id="meeting-note"></div>
-							</div>
-							<div class="result-final__item result-final__item--highlight">
-								<div class="result-final__label">Slutgiltigt resultat</div>
-								<div class="result-final__value" id="final-hours">–</div>
-								<div class="result-final__sub" id="final-days"></div>
-								<div class="result-final__sub" id="pert-confidence"></div>
-							</div>
+						<div class="pert-line">
+							<span class="pert-swatch pert-swatch--work"></span>
+							<span>Arbete (PERT)</span>
+							<span class="pert-num pert-line__end"><span data-out="pert">–</span> h</span>
 						</div>
-
-						<p class="result-note" id="people-note"></p>
-					</div>
-
-					<div id="task-result" hidden>
-						<p class="result-panel__subtitle">
-							Deluppgifternas förväntade tider summeras. Oberoende osäkerheter kombineras genom att summera varianserna.
+						<div class="pert-line pert-line--meeting">
+							<span class="pert-swatch pert-swatch--meeting"></span>
+							<label for="pert-meeting">Estimeringsmöte</label>
+							<span class="pert-num pert-muted"><span data-out="people">0</span> ×</span>
+							<input id="pert-meeting" class="pert-inline pert-inline--wide pert-num" data-meeting inputmode="decimal" autocomplete="off" maxlength="6" aria-describedby="pert-meeting-unit" />
+							<span id="pert-meeting-unit" class="pert-muted">h/person</span>
+							<span class="pert-num pert-line__end"><span data-out="meetTotal">–</span> h</span>
+						</div>
+						<hr class="pert-rule" />
+						<div class="pert-triple">
+							<div><span>Optimistisk</span><span class="pert-num"><span data-out="avgO">–</span> h</span></div>
+							<div><span>Mest trolig</span><span class="pert-num"><span data-out="avgM">–</span> h</span></div>
+							<div><span>Pessimistisk</span><span class="pert-num"><span data-out="avgP">–</span> h</span></div>
+						</div>
+						<p class="pert-flag" data-out="uncertainty" hidden>
+							<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"></circle><path d="M8 4.5v4M8 11v.01"></path></svg>
+							Stort spann mellan optimistiskt och pessimistiskt.
 						</p>
-
-						<div class="result-averages">
-							<div class="result-box">
-								<div class="result-box__label">Optimistisk summa</div>
-								<div class="result-box__value" id="task-total-o">–</div>
-							</div>
-							<div class="result-box">
-								<div class="result-box__label">Mest sannolik summa</div>
-								<div class="result-box__value" id="task-total-m">–</div>
-							</div>
-							<div class="result-box">
-								<div class="result-box__label">Pessimistisk summa</div>
-								<div class="result-box__value" id="task-total-p">–</div>
-							</div>
-						</div>
-
-						<div class="result-final">
-							<div class="result-final__item result-final__item--highlight">
-								<div class="result-final__label">Förväntad total tid</div>
-								<div class="result-final__value" id="task-expected-hours">–</div>
-								<div class="result-final__sub" id="task-expected-days"></div>
-							</div>
-							<div class="result-final__item result-final__item--wide">
-								<div class="result-final__label">Kombinerad standardavvikelse</div>
-								<div class="result-final__value" id="task-standard-deviation">–</div>
-								<div class="result-final__sub">σ = √Σ((P − O) / 6)²</div>
-							</div>
-						</div>
-
-						<h3 class="result-section-heading">Konfidensintervall</h3>
-						<div class="confidence-list" id="confidence-list"></div>
-
-						<h3 class="result-section-heading">Deluppgifter</h3>
-						<div class="task-breakdown" id="task-breakdown"></div>
-						<p class="result-note" id="task-note"></p>
-					</div>
-
-					<div id="group-task-result" hidden>
-						<p class="result-panel__subtitle">
-							Medelvärdet av användarnas totalestimat. Varje användare har samma vikt.
-						</p>
-						<div class="result-averages">
-							<div class="result-box">
-								<div class="result-box__label">Optimistisk AVG</div>
-								<div class="result-box__value" id="group-average-o">–</div>
-							</div>
-							<div class="result-box">
-								<div class="result-box__label">Mest sannolik AVG</div>
-								<div class="result-box__value" id="group-average-m">–</div>
-							</div>
-							<div class="result-box">
-								<div class="result-box__label">Pessimistisk AVG</div>
-								<div class="result-box__value" id="group-average-p">–</div>
-							</div>
-						</div>
-						<div class="result-final">
-							<div class="result-final__item result-final__item--highlight">
-								<div class="result-final__label">Gruppens förväntade projekttid</div>
-								<div class="result-final__value" id="group-expected-hours">–</div>
-								<div class="result-final__sub" id="group-expected-days"></div>
-							</div>
-							<div class="result-final__item result-final__item--wide">
-								<div class="result-final__label">Kombinerad standardavvikelse</div>
-								<div class="result-final__value" id="group-standard-deviation">–</div>
-								<div class="result-final__sub">Osäkerhet i deluppgifter och skillnader mellan användare</div>
-							</div>
-							<div class="result-final__item">
-								<div class="result-final__label">Inom användarna</div>
-								<div class="result-final__value" id="group-within-deviation">–</div>
-								<div class="result-final__sub">Roten ur medelvärdet av PERT-varianserna</div>
-							</div>
-							<div class="result-final__item">
-								<div class="result-final__label">Mellan användarna</div>
-								<div class="result-final__value" id="group-between-deviation">–</div>
-								<div class="result-final__sub" id="group-disagreement"></div>
-							</div>
-						</div>
-						<div class="result-warnings group-result-warnings" aria-live="polite">
-							<p id="group-disagreement-warning" class="status-message result-warning" data-tone="warning" hidden>
-								Stor oenighet mellan användarnas totaler. Kontrollera att alla uppskattar samma omfattning och diskutera skillnaderna.
-							</p>
-							<p id="group-uncertainty-warning" class="status-message result-warning" data-tone="warning" hidden>
-								Stor osäkerhet i gruppestimatet. Granska risker, beroenden och deluppgifternas antaganden.
-							</p>
-						</div>
-						<h3 class="result-section-heading">Konfidensintervall</h3>
-						<div id="group-confidence-list" class="confidence-list"></div>
-						<p class="result-note">
-							Intervallen använder en normalapproximation, inte ett konfidensintervall för
-							medelvärdet. Procentsatserna är riktmärken, inte garantier, särskilt vid få
-							användare eller stor oenighet. Negativa nedre gränser begränsas till noll.
-						</p>
-						<h3 class="result-section-heading">Användarnas estimat och avvikelser</h3>
-						<div id="group-comparison" class="group-comparison"></div>
-						<details class="group-model-note">
-							<summary>Så räknar Enterprise</summary>
-							<p class="result-note">
-								Först summeras förväntade tider och varianser inom varje användares
-								deluppgifter. Gruppens tid är medelvärdet av användarnas totaler.
-								Gruppens varians är medelvärdet av deras PERT-varianser plus
-								populationsvariansen mellan totalerna. Fler användare minskar inte
-								automatiskt projektets osäkerhet.
-							</p>
-							<p class="result-note">
-								Modellen antar oberoende deluppgifter inom varje användare.
-								Gemensamma risker och olika detaljnivåer kan påverka osäkerheten.
-								Det är projekttid i arbetstimmar, inte kalendertid eller summan av
-								alla användares arbete. Mötestid ingår inte.
-							</p>
+						<details class="pert-how" data-export-hide>
+							<summary>
+								<svg class="pert-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 2.5L7.5 6 4 9.5"></path></svg>
+								Hur räknas det?
+							</summary>
+							<p class="pert-formula pert-num" data-out="formula"></p>
+							<p>O, M och P är medelvärden av deltagarnas bedömningar. Mötestiden läggs ovanpå. Intervallet är ± en standardavvikelse, (P − O) / 6, och bygger på antagandet att bedömningarna är normalfördelade.</p>
 						</details>
-						<p id="group-result-note" class="result-note"></p>
+						<div class="pert-export-only" data-export-list></div>
 					</div>
-				</section>
-				
-				<div class="pert-actions">
-					<button type="button" id="share-button" class="button button-secondary" disabled>
-						Kopiera länk
-					</button>
-					<button type="button" id="png-button" class="button button-secondary" disabled>
-						Kopiera bild (PNG)
-					</button>
-					<button type="button" id="combined-button" class="button button-primary" disabled>
-						Kopiera bild + länk
-					</button>
+					<ShareBar notice="Länken innehåller namn och estimat." />
+				</aside>
+			</section>
+
+			<!-- PERT Pro -->
+			<section class="pert-workspace" data-workspace="tasks" aria-label="PERT Pro" hidden>
+				<div class="pert-input">
+					<div class="pert-card">
+						<div class="pert-card__head">
+							<h2>Deluppgifter</h2>
+							<span class="pert-count" data-count></span>
+						</div>
+						<EstimateTable nameHeading="Deluppgift" addLabel="Lägg till deluppgift" />
+					</div>
+					<p class="pert-note" data-row-error role="status" hidden></p>
 				</div>
-				<p id="share-status" class="action-status" role="status" aria-live="polite"></p>
-				<p id="png-status" class="action-status" role="status" aria-live="polite"></p>
-				<p id="combined-status" class="action-status" role="status" aria-live="polite"></p>
-			</div>
+
+				<aside class="pert-result pert-card" data-panel aria-label="Resultat">
+					<ResultHead label="Förväntad total tid" tail="sd" />
+					<p class="pert-empty" data-empty>Fyll i en rad för att se ett estimat.</p>
+					<div class="pert-result__body" data-result-body>
+						<div data-band></div>
+						<hr class="pert-rule" />
+						<div class="pert-shares">
+							<div class="pert-shares__head">
+								<h3>Var sitter osäkerheten?</h3>
+								<span>andel av variansen</span>
+							</div>
+							<ul class="pert-shares__list" data-shares></ul>
+						</div>
+						<details class="pert-how" data-export-hide>
+							<summary>
+								<svg class="pert-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 2.5L7.5 6 4 9.5"></path></svg>
+								Hur räknas det?
+							</summary>
+							<p class="pert-formula pert-num" data-out="formula"></p>
+							<p>Varje deluppgift ger (O + 4M + P) / 6 och σ = (P − O) / 6. Tiderna summeras och varianserna läggs ihop innan roten dras. Det förutsätter att deluppgifterna är oberoende av varandra: hänger de ihop underskattas osäkerheten och 95 %-intervallet blir för smalt. Intervallen är riktmärken, inte garantier.</p>
+						</details>
+					</div>
+					<ShareBar />
+				</aside>
+			</section>
+
+			<!-- Enterprise -->
+			<section class="pert-workspace" data-workspace="grouptasks" aria-label="Enterprise" hidden>
+				<div class="pert-input">
+					<div class="pert-people">
+						<div class="pert-people__chips" data-chips role="group" aria-label="Personer"></div>
+						<button type="button" class="pert-ghost" data-add-person>
+							<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M7 2v10M2 7h10"></path></svg>
+							Lägg till person
+						</button>
+						<span class="pert-people__spacer"></span>
+						<button type="button" class="pert-ghost" data-import-toggle aria-expanded="false" aria-controls="pert-import-panel">
+							<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2v7M4 6.5L7 9.5l3-3M2.5 12h9"></path></svg>
+							Importera estimat
+						</button>
+					</div>
+
+					<div class="pert-import" id="pert-import-panel" data-import-panel hidden>
+						<label for="pert-import-url">Klistra in en PERT Pro- eller Enterprise-länk</label>
+						<div class="pert-import__row">
+							<input id="pert-import-url" class="pert-field" data-import-url type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…" aria-describedby="pert-import-error" />
+							<button type="button" class="pert-primary pert-primary--small" data-import-run>Importera</button>
+							<button type="button" class="pert-ghost" data-import-cancel>Avbryt</button>
+						</div>
+						<p class="pert-import__error" id="pert-import-error" data-import-error role="alert"></p>
+					</div>
+
+					<div class="pert-status" data-import-status role="status" hidden>
+						<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.3l2.8 2.8 6-6.4"></path></svg>
+						<span data-import-text></span>
+						<span class="pert-people__spacer"></span>
+						<button type="button" class="pert-ghost" data-import-undo>Ångra</button>
+						<button type="button" class="pert-ghost pert-ghost--icon" data-import-dismiss aria-label="Stäng meddelande">
+							<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"></path></svg>
+						</button>
+					</div>
+
+					<div class="pert-card">
+						<div class="pert-card__head pert-card__head--person">
+							<label class="pert-visually-hidden" for="pert-person-name">Namn på person</label>
+							<input id="pert-person-name" class="pert-cell pert-cell--name pert-person-name" data-person-name maxlength="200" placeholder="Namn" autocomplete="off" />
+							<span class="pert-people__spacer"></span>
+							<button type="button" class="pert-ghost" data-remove-person>Ta bort person</button>
+						</div>
+						<EstimateTable nameHeading="Deluppgift" addLabel="Lägg till deluppgift" />
+					</div>
+
+					<p class="pert-note" data-row-error role="status" hidden></p>
+					<div class="pert-gaps" data-gaps></div>
+				</div>
+
+				<aside class="pert-result pert-card" data-panel aria-label="Resultat">
+					<ResultHead label="Förväntad projekttid" tail="sd" />
+					<p class="pert-empty" data-empty>Fyll i en rad för att se ett estimat.</p>
+					<div class="pert-result__body" data-result-body>
+						<div data-band></div>
+						<hr class="pert-rule" />
+						<div class="pert-triple">
+							<div><span>Optimistisk</span><span class="pert-num"><span data-out="avgO">–</span> h</span></div>
+							<div><span>Mest trolig</span><span class="pert-num"><span data-out="avgM">–</span> h</span></div>
+							<div><span>Pessimistisk</span><span class="pert-num"><span data-out="avgP">–</span> h</span></div>
+						</div>
+						<div class="pert-people-totals">
+							<div class="pert-people-totals__head">
+								<span>Personernas totaler</span>
+								<span data-out="spread"></span>
+							</div>
+							<div class="pert-dots" aria-hidden="true" data-dots>
+								<div class="pert-dots__line"></div>
+								<div class="pert-dots__mean" data-dots-mean></div>
+							</div>
+							<ul class="pert-people-totals__list" data-person-list></ul>
+						</div>
+						<p class="pert-flag" data-out="disagreement" hidden></p>
+						<p class="pert-flag" data-out="uncertainty" hidden>
+							<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"></circle><path d="M8 4.5v4M8 11v.01"></path></svg>
+							Stort spann mellan optimistiskt och pessimistiskt.
+						</p>
+						<details class="pert-how" data-export-hide>
+							<summary>
+								<svg class="pert-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 2.5L7.5 6 4 9.5"></path></svg>
+								Hur räknas det?
+							</summary>
+							<p>Varje deluppgift ger (O + 4M + P) / 6 och σ = (P − O) / 6. Personens total är summan, gruppens är medelvärdet av totalerna. Osäkerheten väger ihop variansen inom personerna (<span class="pert-num" data-out="within">–</span> h) och skillnaden mellan dem (<span class="pert-num" data-out="between">–</span> h).</p>
+							<p>Modellen förutsätter att deluppgifterna är oberoende av varandra: hänger de ihop underskattas osäkerheten. Intervallen bygger på en normalapproximation och är riktmärken, inte garantier, särskilt med få personer eller stor oenighet.</p>
+						</details>
+					</div>
+					<ShareBar notice="Länken innehåller namn och estimat." />
+				</aside>
+			</section>
 		</div>
+
+		<button type="button" class="pert-summary" data-summary hidden>
+			<span class="pert-num" data-summary-text></span>
+			<span class="pert-summary__cta">Visa resultat</span>
+		</button>
 	</div>
+	<EnterpriseGag />
 </BaseLayout>
 
-<script src="../../../scripts/pert-client-old.ts"></script>
-
-<style>
-	.page {
-		padding-block: 2.5rem 4rem;
-	}
-
-	.page__header {
-		margin-bottom: 2rem;
-	}
-
-	.page__header h1 {
-		font-size: clamp(1.9rem, 4vw, 2.6rem);
-		margin: 0 0 0.6rem;
-	}
-
-	.page__lead {
-		color: var(--color-text-muted);
-		font-size: 1.02rem;
-		margin: 0;
-		max-width: 40rem;
-	}
-
-	.mode-switch {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 0.5rem;
-		width: 100%;
-		min-width: 0;
-		padding: 0.35rem;
-		margin: 0 0 2rem;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		background: var(--color-bg-elevated);
-	}
-
-	.mode-switch__option {
-		position: relative;
-		cursor: pointer;
-	}
-
-	.mode-switch__option input {
-		position: absolute;
-		opacity: 0;
-		pointer-events: none;
-	}
-
-	.mode-switch__option > span {
-		display: flex;
-		flex-direction: column;
-		gap: 0.1rem;
-		height: 100%;
-		padding: 0.75rem 1rem;
-		border: 1px solid transparent;
-		border-radius: calc(var(--radius-lg) - 4px);
-		color: var(--color-text-muted);
-		transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
-	}
-
-	.mode-switch__option small {
-		font-size: 0.78rem;
-		line-height: 1.35;
-	}
-
-	.mode-switch__name {
-		font-weight: 500;
-	}
-
-	.mode-switch__option input:checked + span {
-		color: var(--color-text);
-		border-color: var(--color-primary);
-		background: var(--color-primary-muted);
-	}
-
-	.mode-switch__option input:focus-visible + span {
-		box-shadow: var(--focus-ring);
-	}
-
-	.pert-workspace {
-		display: grid;
-		grid-template-columns: minmax(0, .5fr) minmax(22rem, .85fr);
-		align-items: start;
-		gap: 2rem;
-	}
-
-	.pert-workspace__form {
-		min-width: 0;
-	}
-
-	.pert-workspace__result {
-		position: sticky;
-		top: 1.5rem;
-	}
-
-	@media (max-width: 900px) {
-		.pert-workspace {
-			grid-template-columns: 1fr;
-		}
-
-		.pert-workspace__result {
-			position: static;
-		}
-	}
-
-	.settings {
-		padding: 1rem 1.25rem 1.25rem;
-	}
-
-	.settings__title {
-		font-weight: 800;
-		font-size: 1.05rem;
-		margin: 0 0 0.4rem;
-	}
-
-	.settings__grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-		gap: 0.6rem;
-	}
-
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-		font-size: 0.85rem;
-		font-weight: 600;
-		color: var(--color-text-muted);
-	}
-
-	.field > input {
-		min-width: 0;
-		width: 100%;
-		font: inherit;
-		font-size: 0.95rem;
-		font-weight: 500;
-		color: var(--color-text);
-		background: var(--color-bg);
-		border: 1px solid var(--color-border-strong);
-		border-radius: 8px;
-		padding: 0.45rem 0.6rem;
-		min-height: 2.2rem;
-	}
-
-	.field > input[aria-invalid='true'] {
-		border-color: var(--color-danger-border);
-	}
-
-	.input-control {
-		display: flex;
-		align-items: stretch;
-		border: 1px solid var(--color-border-strong);
-		border-radius: 8px;
-		background: var(--color-bg);
-		transition: border-color 150ms ease;
-	}
-
-	.input-control:focus-within {
-		border-color: var(--color-primary);
-	}
-
-	.input-control:has(.input-control__input[aria-invalid='true']) {
-		border-color: var(--color-danger-border);
-	}
-
-	.input-control__prefix {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 1.5rem;
-		padding-inline: 0.35rem;
-		font-weight: 800;
-		font-size: 0.8rem;
-		color: var(--color-text-muted);
-		background: var(--color-bg-elevated-2);
-		border-right: 1px solid var(--color-border-strong);
-		border-top-left-radius: 8px;
-		border-bottom-left-radius: 8px;
-	}
-
-	.input-control__input {
-		flex: 1;
-		min-width: 0;
-		width: 100%;
-		font: inherit;
-		font-size: 0.95rem;
-		font-weight: 500;
-		color: var(--color-text);
-		background: transparent;
-		border: none;
-		padding: 0.4rem 0.4rem;
-		min-height: 2.2rem;
-	}
-
-	.input-control__input:focus {
-		outline: none;
-	}
-
-	.field__error {
-		margin: 0;
-		min-height: 1.1em;
-		font-size: 0.85rem;
-		font-weight: 600;
-		color: var(--color-danger);
-	}
-
-	.field__error:empty {
-		display: none;
-	}
-
-	.participants {
-		padding: 1rem 1.25rem 1.25rem;
-		margin-bottom: 1.25rem;
-	}
-
-	#task-form .participants {
-		padding: 0;
-	}
-
-	.pert-estimate-reminder {
-		padding-inline: 1.25rem;
-		margin: 0 0 1.25rem;
-		color: var(--color-text-muted);
-		font-size: 0.9rem;
-		line-height: 1.5;
-	}
-
-	.participants__header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		flex-wrap: wrap;
-		gap: 0.75rem;
-	}
-
-	.participants__heading {
-		display: flex;
-		align-items: baseline;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
-	.participants__heading h2 {
-		font-size: 1.2rem;
-		margin: 0;
-	}
-
-	.participants__count {
-		font-size: 0.9rem;
-		font-weight: 600;
-		color: var(--color-text-muted);
-	}
-
-	.participants__add {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.5rem;
-		height: 1.5rem;
-		flex-shrink: 0;
-		font-size: 1.2rem;
-		font-weight: 500;
-		line-height: 1;
-		color: var(--color-text-muted);
-		background: var(--color-bg-elevated-2);
-		border: none;
-		border-radius: 999px;
-		cursor: pointer;
-		transition: filter 150ms ease, transform 150ms ease;
-	}
-
-	.participants__add:hover {
-		filter: brightness(1.08);
-	}
-
-	.participants__add:active {
-		transform: scale(0.94);
-	}
-
-	.participants__add span {
-		height: 22px;
-	}
-
-	.participant-grid {
-		/* Safety net only — the grid below is fully fluid and shouldn't need to scroll. */
-		overflow-x: auto;
-	}
-
-	.participant-columns,
-	.participant-row {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(3rem, 1fr)) 1.6rem;
-		align-items: center;
-		gap: 0.4rem;
-	}
-
-	.participant-columns {
-		padding-bottom: 0.4rem;
-		font-size: 0.78rem;
-		font-weight: 700;
-		color: var(--color-text-muted);
-	}
-
-	.participant-columns span {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.participants__description {
-		margin: 0.3rem 0 0;
-		max-width: 34rem;
-		color: var(--color-text-muted);
-		font-size: 0.88rem;
-		line-height: 1.45;
-	}
-
-	.participant-rows {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.participant-row {
-		padding: 0.6rem 0;
-		border-top: 1px solid var(--color-border);
-	}
-
-	.participant-rows > .participant-row:first-child {
-		border-top: none;
-		padding-top: 0;
-	}
-
-	.participant-rows > .participant-row:last-child {
-		padding-bottom: 0;
-	}
-
-	.participant-row__remove {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		justify-self: center;
-		width: 1.6rem;
-		height: 1.6rem;
-		flex-shrink: 0;
-		font-size: 0.85rem;
-		line-height: 1;
-		color: var(--color-text-muted);
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: background-color 150ms ease, color 150ms ease;
-	}
-
-	.participant-row__remove:hover:not(:disabled) {
-		background: var(--color-bg-elevated-2);
-		color: var(--color-text);
-	}
-
-	.participant-row__remove:disabled {
-		opacity: 0.35;
-		cursor: not-allowed;
-	}
-
-	.participant-row__field {
-		min-width: 0;
-	}
-
-	.participant-row__error {
-		grid-column: 1 / -1;
-	}
-
-	.task-row__title-field {
-		min-width: 0;
-		margin: 0;
-	}
-
-	.task-row {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) 2rem;
-		align-items: start;
-		gap: 0.75rem;
-		padding: 0.75rem;
-		margin-bottom: 1rem;
-		border-top: 1px solid var(--color-border);
-		transition: border-color 150ms ease, opacity 150ms ease, transform 150ms ease;
-	}
-
-	.participant-rows > .task-row:first-child {
-		padding-top: 0.75rem;
-		border-top: 1px solid var(--color-border);
-	}
-
-	.participant-rows > .task-row:last-child {
-		padding-bottom: 0.75rem;
-	}
-
-	.task-row__title-field > input {
-		min-height: 2rem;
-		height: 2rem;
-		padding: 0.4rem 0.65rem;
-		font-size: 0.8rem;
-		font-weight: 700;
-	}
-
-	.task-row__actions {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.25rem;
-	}
-
-	.task-row .participant-row__remove {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 2rem;
-		height: 2rem;
-		padding: 0;
-		color: var(--color-text-muted);
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: background-color 150ms ease, color 150ms ease;
-	}
-
-	.task-row .participant-row__remove:hover:not(:disabled) {
-		color: var(--color-text);
-		background: var(--color-bg-elevated-2);
-	}
-
-	.task-row {
-		cursor: grab;
-		touch-action: manipulation;
-	}
-
-	.task-row--dragging {
-		cursor: grabbing;
-	}
-
-	.task-row input {
-		cursor: text;
-	}
-
-	.task-row button {
-		cursor: pointer;
-	}
-
-	.task-row .participant-row__fields {
-		grid-column: 1 / -1;
-		display: grid;
-		grid-template-columns: repeat(3, minmax(5rem, 1fr));
-		gap: 0.75rem;
-	}
-
-	.task-row .participant-row__error {
-		grid-column: 1 / -1;
-	}
-
-	.task-row--dragging {
-		opacity: 0.45;
-		border-color: var(--color-primary);
-		user-select: none;
-	}
-
-	.task-row:focus-visible {
-		outline: 2px solid var(--color-primary);
-		outline-offset: 3px;
-	}
-
-	.task-rows__add {
-		width: 100%;
-		margin-top: 0.25rem;
-	}
-
-	.confirmation-dialog {
-		width: min(calc(100% - 2rem), 28rem);
-		padding: 0;
-		color: var(--color-text);
-		background: var(--color-bg-elevated);
-		border: 1px solid var(--color-border-strong);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-elevated);
-	}
-
-	.confirmation-dialog::backdrop {
-		background: rgb(0 0 0 / 0.65);
-		backdrop-filter: blur(2px);
-	}
-
-	.confirmation-dialog__content {
-		padding: 1.25rem;
-	}
-
-	.confirmation-dialog h2 {
-		margin: 0 0 0.5rem;
-		font-size: 1.2rem;
-	}
-
-	.confirmation-dialog p {
-		margin: 0;
-		color: var(--color-text-muted);
-		line-height: 1.5;
-	}
-
-	.confirmation-dialog__actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.75rem;
-		margin-top: 1.25rem;
-	}
-
-	.button-danger {
-		color: white;
-		background: #b3261e;
-		border-color: #b3261e;
-	}
-
-	.enterprise-intro {
-		margin-bottom: 1.25rem;
-	}
-
-	#task-form .participants__header h2,
-	.enterprise-intro h2 {
-		margin: 0;
-		font-size: 1.25rem;
-	}
-
-	.group-import {
-		margin-bottom: 1.5rem;
-	}
-
-	.group-import__toggle[hidden] {
-		display: none;
-	}
-
-	.group-import__panel {
-		padding: 1rem;
-	}
-
-	.group-import h3 {
-		margin: 0;
-		font-size: 1rem;
-	}
-
-	.group-import__panel > .field {
-		margin-top: 0.9rem;
-	}
-
-	.group-import__actions {
-		display: flex;
-		align-items: end;
-		gap: 0.75rem;
-		margin-top: 0.75rem;
-	}
-
-	.group-import__actions .field {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.group-import__actions .button {
-		flex-shrink: 0;
-	}
-
-	#group-import-status[data-tone='error'] {
-		color: var(--color-danger);
-	}
-
-	#group-import-status[data-tone='success'] {
-		color: var(--color-success);
-	}
-
-	#group-import-status:empty {
-		display: none;
-	}
-
-	.task-groups {
-		display: grid;
-		gap: 1.25rem;
-	}
-
-	.task-group {
-		min-width: 0;
-		padding: 0.75rem;
-	}
-
-	.task-group__header {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) 2rem;
-		align-items: end;
-		gap: 0.75rem;
-	}
-
-	.task-group__name-field {
-		min-width: 0;
-	}
-
-	.task-group__name-field > input {
-		font-weight: 700;
-	}
-
-	.task-group__total {
-		margin: 0.75rem 0;
-		font-size: 0.85rem;
-		color: var(--color-text-muted);
-	}
-
-	.task-group__details > summary,
-	.group-model-note > summary {
-		padding-block: 0.5rem;
-		font-weight: 700;
-		font-size: 0.9rem;
-		cursor: pointer;
-	}
-
-	.task-group__rows > .task-row,
-	.task-group__rows > .task-row:first-child,
-	.task-group__rows > .task-row:last-child {
-		margin: 0;
-		padding: 1rem 0.75rem;
-		background: transparent;
-		border: 0;
-		border-radius: 0;
-		box-shadow: none;
-	}
-
-	.task-group__rows > .task-row + .task-row {
-		border-top: 1px solid var(--color-border);
-	}
-
-	#add-task-group-button {
-		margin-top: 1.25rem;
-	}
-
-	.task-group__reuse {
-		width: 100%;
-		margin-top: 0.75rem;
-		font-size: 0.8rem;
-	}
-
-	.group-settings {
-		margin-top: 1.25rem;
-	}
-
-	.group-result-warnings {
-		margin-top: 1rem;
-	}
-
-	.group-comparison {
-		display: grid;
-		gap: 0.75rem;
-	}
-
-	.group-comparison :global(.group-comparison__person) {
-		padding: 0.75rem;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-bg-elevated-2);
-	}
-
-	.group-comparison :global(summary) {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: 0.25rem 0.75rem;
-		cursor: pointer;
-	}
-
-	.group-comparison :global(summary strong) {
-		overflow-wrap: anywhere;
-	}
-
-	.group-comparison :global(summary strong)::before {
-		content: '+ ';
-		color: var(--color-primary);
-	}
-
-	.group-comparison :global(details[open] summary strong)::before {
-		content: '− ';
-	}
-
-	.group-comparison :global(.group-comparison__total) {
-		font-weight: 800;
-	}
-
-	.group-comparison :global(.group-comparison__meta) {
-		grid-column: 1 / -1;
-		margin: 0;
-		font-size: 0.8rem;
-		color: var(--color-text-muted);
-	}
-
-	.group-model-note {
-		margin-top: 1.25rem;
-	}
-
-	.pert-actions {
-		display: flex;
-		gap: 0.9rem;
-		flex-wrap: wrap;
-		margin-top: 1.75rem;
-		justify-content: flex-end;
-	}
-
-	.action-status {
-		margin: 0.6rem 0 0;
-		font-size: 0.9rem;
-		color: var(--color-text-muted);
-		min-height: 1.2em;
-	}
-	
-	.pert-form{
-		margin-bottom: 2.5rem;
-	}
-
-	.result-empty {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		text-align: center;
-		min-height: 12rem;
-		padding: clamp(1.5rem, 4vw, 2.25rem);
-		color: var(--color-text-muted);
-		font-size: 0.95rem;
-	}
-
-	.result-empty[hidden] {
-		display: none;
-	}
-
-	.result-panel {
-		padding: clamp(1.5rem, 4vw, 2.25rem);
-	}
-
-	.result-panel h2 {
-		margin: 0 0 0.35rem;
-		font-size: 1.35rem;
-		line-height: 1.25;
-	}
-
-	.result-panel__subtitle {
-		margin: 0 0 1.5rem;
-		color: var(--color-text-muted);
-		font-size: 0.92rem;
-		line-height: 1.3;
-	}
-
-	.result-averages {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 1rem;
-		margin-bottom: 0.9rem;
-	}
-
-	.result-box {
-		background: var(--color-bg-elevated-2);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		padding: 0.9rem 1rem;
-	}
-
-	.result-box__label {
-		font-size: 0.75rem;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-text-muted);
-		margin-bottom: 0.4rem;
-		line-height: 1.3;
-	}
-
-	.result-box__value {
-		font-size: 1.3rem;
-		font-weight: 800;
-		line-height: 1.25;
-	}
-
-	.result-formula {
-		font-family: var(--font-mono);
-		background: var(--color-bg-elevated-2);
-		border-radius: var(--radius-md);
-		padding: 0.85rem 1rem;
-		margin: 0 0 0.9rem;
-		font-size: 0.95rem;
-		line-height: 1.3;
-		color: var(--color-text-muted);
-	}
-
-	.result-final {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 0.9rem;
-	}
-
-	.result-final__item--highlight {
-		grid-column: 1 / -1;
-	}
-
-	.result-final__item--wide {
-		grid-column: 1 / -1;
-	}
-
-	.result-final__item {
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-bg-elevated-2);
-		padding: 1rem 1.15rem;
-	}
-
-	.result-final__item--highlight {
-		border-color: var(--color-primary);
-		background: var(--color-primary-muted);
-	}
-
-	.result-final__label {
-		font-size: 0.85rem;
-		color: var(--color-text-muted);
-		margin-bottom: 0.3rem;
-		line-height: 1.3;
-	}
-
-	.result-final__value {
-		font-size: 1.6rem;
-		font-weight: 900;
-		line-height: 1.2;
-	}
-
-	.result-final__sub {
-		font-size: 0.9rem;
-		color: var(--color-text-muted);
-		margin-top: 0.2rem;
-		line-height: 1.3;
-	}
-
-	.result-note {
-		margin: 1.25rem 0 0;
-		font-size: 0.85rem;
-		color: var(--color-text-muted);
-		line-height: 1.3;
-	}
-
-	.result-warnings {
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
-	}
-
-	.result-warnings:has(.result-warning:not([hidden])) {
-		margin-bottom: 1.25rem;
-	}
-
-	.result-warning {
-		margin: 0;
-		font-size: 0.88rem;
-		line-height: 1.4;
-	}
-
-	.result-warning[hidden] {
-		display: none;
-	}
-
-	.status-message[data-tone='warning'] {
-		background: color-mix(in srgb, #f5a524 12%, var(--color-bg-elevated));
-		border-color: color-mix(in srgb, #f5a524 45%, transparent);
-		color: color-mix(in srgb, #f5a524 65%, var(--color-text));
-	}
-
-	.result-section-heading {
-		margin: 1.5rem 0 0.75rem;
-		font-size: 1rem;
-	}
-
-	.confidence-list {
-		display: grid;
-		gap: 0.65rem;
-	}
-
-	.confidence-list :global(.confidence-row) {
-		display: grid;
-		grid-template-columns: minmax(8rem, 0.7fr) minmax(0, 1fr) max-content;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem 0.9rem;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-bg-elevated-2);
-	}
-
-	.confidence-list :global(.confidence-row__level) {
-		font-weight: 800;
-		white-space: nowrap;
-	}
-
-	.confidence-list :global(.confidence-row__calculation) {
-		color: var(--color-text-muted);
-		font-family: var(--font-mono);
-		font-size: 0.82rem;
-	}
-
-	.confidence-list :global(.confidence-row__interval) {
-		text-align: right;
-		font-weight: 800;
-	}
-
-	.result-panel :global(.task-breakdown) {
-		display: grid;
-		gap: 0.45rem;
-	}
-
-	.result-panel :global(.task-breakdown__row) {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: 1rem;
-		padding-block: 0.55rem;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.result-panel :global(.task-breakdown__title) {
-		min-width: 0;
-		overflow-wrap: anywhere;
-	}
-
-	.result-panel :global(.task-breakdown__value) {
-		font-weight: 800;
-		white-space: nowrap;
-	}
-
-	@media (max-width: 640px) {
-		.mode-switch {
-			grid-template-columns: 1fr;
-		}
-
-		.result-averages {
-			grid-template-columns: 1fr;
-		}
-
-		.result-final {
-			grid-template-columns: 1fr;
-		}
-
-		.task-row .participant-row__fields {
-			grid-template-columns: 1fr;
-		}
-
-		.confidence-list :global(.confidence-row) {
-			grid-template-columns: 1fr;
-			gap: 0.2rem;
-		}
-
-		.confidence-list :global(.confidence-row__interval) {
-			text-align: left;
-		}
-	}
-</style>
+<script src="../../../scripts/pert/main.ts"></script>

@@ -42,6 +42,37 @@
 	--font-mono: ui-monospace, SFMono-Regular, 'Cascadia Code', Menlo, Consolas, monospace;
 
 	--content-width: 72rem;
+
+	/* PERT calculator tokens */
+	--pert-bg: #161719;
+	--pert-surface: #1e1f22;
+	--pert-surface-sunken: #1a1b1e;
+	--pert-hover: #232427;
+	--pert-focus-bg: #26282b;
+	--pert-border: #2a2b2f;
+	--pert-border-strong: #5a5d63;
+	--pert-divider: #242528;
+	--pert-text: #e7e5e1;
+	--pert-text-soft: #d9d6d0;
+	--pert-muted: #a3a19c;
+	--pert-faint: #8a8883;
+	--pert-accent: #e3a869;
+	--pert-accent-fill: #e3a869;
+	--pert-selected-bg: #2a2c30;
+	--pert-selected-border: #4a4d53;
+	--pert-seg-active: #2e3034;
+	--pert-btn-bg: #e7e5e1;
+	--pert-btn-hover: #ffffff;
+	--pert-btn-text: #161719;
+	--pert-band-1: #565a61;
+	--pert-band-2: #3d4045;
+	--pert-band-3: #2f3135;
+	--pert-track: #232427;
+	--pert-dot: #c9c7c2;
+	--pert-swatch-work: #9d9a94;
+	--pert-swatch-meeting: #4a4d53;
+	--pert-font-sans: 'IBM Plex Sans', var(--font-sans);
+	--pert-font-mono: 'IBM Plex Mono', var(--font-mono);
 }
 
 @media (prefers-color-scheme: light) {
@@ -74,6 +105,34 @@
 		--color-disabled-text: #9098a5;
 
 		--shadow-elevated: 0 12px 28px rgba(30, 41, 59, 0.08);
+
+		--pert-bg: #f6f5f2;
+		--pert-surface: #ffffff;
+		--pert-surface-sunken: #f1efeb;
+		--pert-hover: #edebe6;
+		--pert-focus-bg: #f7f6f3;
+		--pert-border: #dcd9d2;
+		--pert-border-strong: #8c8982;
+		--pert-divider: #e6e3dc;
+		--pert-text: #1f1e1c;
+		--pert-text-soft: #34322f;
+		--pert-muted: #5f5c56;
+		--pert-faint: #6b6862;
+		--pert-accent: #9a5a12;
+		--pert-accent-fill: #c9781e;
+		--pert-selected-bg: #edebe6;
+		--pert-selected-border: #8c8982;
+		--pert-seg-active: #e9e6df;
+		--pert-btn-bg: #1f1e1c;
+		--pert-btn-hover: #000000;
+		--pert-btn-text: #f6f5f2;
+		--pert-band-1: #7d828b;
+		--pert-band-2: #a9adb4;
+		--pert-band-3: #cfd2d7;
+		--pert-track: #edebe6;
+		--pert-dot: #5f5c56;
+		--pert-swatch-work: #8c8982;
+		--pert-swatch-meeting: #c4c1b9;
 	}
 }
 

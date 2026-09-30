@@ -1,0 +1,18 @@
+---
+export interface Props {
+	notice?: string;
+}
+
+const { notice } = Astro.props;
+---
+
+<div class="pert-share" data-share data-export-hide>
+	{notice && <p class="pert-share__notice" data-share-notice hidden>{notice}</p>}
+	<div class="pert-share__buttons">
+		<button type="button" class="pert-primary" data-share-combined>Dela bild och länk</button>
+		<button type="button" class="pert-ghost" data-share-link>Länk</button>
+		<button type="button" class="pert-ghost" data-share-image>Bild</button>
+	</div>
+	<p class="pert-share__hint" data-share-hint>Fyll i alla rader för att dela.</p>
+	<p class="pert-share__status" data-share-status role="status" aria-live="polite"></p>
+</div>
