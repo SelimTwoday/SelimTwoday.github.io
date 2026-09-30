@@ -45,10 +45,7 @@ async function capturePng(panel: HTMLElement): Promise<Blob> {
 	panel.dataset.exporting = 'true';
 	await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 	try {
-		const blob = await toBlob(panel, {
-			pixelRatio: 2,
-			backgroundColor: getComputedStyle(panel).backgroundColor,
-		});
+		const blob = await toBlob(panel, { pixelRatio: 2 });
 		if (!blob) throw new Error('Kunde inte generera bilden.');
 		return blob;
 	} finally {
