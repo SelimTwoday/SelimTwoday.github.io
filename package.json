@@ -14,7 +14,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "astro": "^7.3.3",
+    "astro": "^7.4.7",
     "diff": "^9.0.0",
     "html-to-image": "^1.11.13"
   },
